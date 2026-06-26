@@ -1,0 +1,13 @@
+[Unit]
+Description=Jarvis OS First Boot Setup
+After=network-online.target
+Wants=network-online.target
+ConditionPathExists=/etc/jarvis-os/first-boot
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/jarvis-os-first-boot
+RemainAfterExit=no
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,46 @@
+# Jarvis OS — automated installation script
+# Runs on first boot if /etc/jarvis-os/first-boot exists.
+
+#!/usr/bin/env bash
+set -euo pipefail
+
+MARKER="/etc/jarvis-os/first-boot"
+
+if [ ! -f "$MARKER" ]; then
+    exit 0
+fi
+
+echo "[Jarvis OS] First boot setup..."
+
+# Start essential services
+systemctl enable --now NetworkManager 2>/dev/null || true
+systemctl enable --now bluetooth 2>/dev/null || true
+systemctl enable --now tpm2-abrmd 2>/dev/null || true
+systemctl enable --now firewalld 2>/dev/null || true
+systemctl enable --now apparmor 2>/dev/null || true
+systemctl enable --now sddm 2>/dev/null || true
+
+# Detect and configure GPU
+if lspci | grep -qi "nvidia"; then
+    echo "[Jarvis OS] NVIDIA GPU detected. Configuring drivers..."
+    echo "options nvidia-drm modeset=1" > /etc/modprobe.d/nvidia.conf
+    mkinitcpio -P 2>/dev/null || true
+elif lspci | grep -qi "amd"; then
+    echo "[Jarvis OS] AMD GPU detected. Using amdgpu driver."
+elif lspci | grep -qi "intel"; then
+    echo "[Jarvis OS] Intel GPU detected. Using i915 driver."
+fi
+
+# Check for TPM 2.0
+if ls /dev/tpmrm* >/dev/null 2>&1; then
+    echo "[Jarvis OS] TPM 2.0 device detected."
+    systemctl enable --now tpm2-abrmd 2>/dev/null || true
+else
+    echo "[Jarvis OS] WARNING: No TPM 2.0 device found."
+    echo "  TPM 2.0 is recommended for disk encryption and Secure Boot."
+fi
+
+# Remove first-boot marker
+rm -f "$MARKER"
+
+echo "[Jarvis OS] First boot setup complete."

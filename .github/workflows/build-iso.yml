@@ -1,0 +1,160 @@
+name: Build Jarvis OS ISO
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+    inputs:
+      release:
+        description: "Create a GitHub release with the ISO"
+        type: boolean
+        default: true
+
+permissions:
+  contents: write
+  packages: write
+
+env:
+  ARCHISO_VERSION: "archlinux-2024.12.01"
+
+jobs:
+  build-iso:
+    name: Build Jarvis OS ISO
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+
+    steps:
+      # ── Checkout ────────────────────────────────────────────
+      - name: Checkout Jarvis OS
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      # ── Checkout Jarvis Desktop (for inclusion in ISO) ──────
+      - name: Checkout Jarvis Desktop
+        uses: actions/checkout@v4
+        with:
+          repository: S1d11/jarvis-desktop
+          path: jarvis-desktop
+          fetch-depth: 1
+
+      # ── Set up Docker ───────────────────────────────────────
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      # ── Build ISO in Arch Linux container ───────────────────
+      - name: Build Jarvis OS ISO
+        run: |
+          echo "Building Jarvis OS ISO in Arch Linux container..."
+
+          # Create the build container with archiso
+          docker run --rm \
+            --privileged \
+            -v "$PWD:/work" \
+            -v "$PWD/output:/output" \
+            archlinux:latest \
+            bash -c '
+              set -euo pipefail
+
+              echo "=== Installing archiso and dependencies ==="
+              pacman -Syu --noconfirm archiso git python python-pip pipewire
+
+              echo "=== Preparing build environment ==="
+              cd /work
+
+              # Make scripts executable
+              chmod +x scripts/*.sh
+              chmod +x archiso/profiledef.sh
+              chmod +x archiso/airootfs/usr/local/bin/*
+
+              # Copy Jarvis Desktop into the archiso profile
+              echo "=== Copying Jarvis Desktop into ISO ==="
+              mkdir -p archiso/airootfs/opt/jarvis-desktop
+              cp -r jarvis-desktop/* archiso/airootfs/opt/jarvis-desktop/
+
+              # Build the ISO
+              echo "=== Building ISO with mkarchiso ==="
+              mkdir -p /tmp/build /output
+              mkarchiso -v -w /tmp/build -o /output archiso/
+
+              echo "=== ISO build complete ==="
+              ls -lh /output/
+            '
+
+      # ── Generate checksums ──────────────────────────────────
+      - name: Generate checksums
+        run: |
+          cd output
+          sha256sum jarvis-os-*.iso > sha256sum.txt || true
+          md5sum jarvis-os-*.iso > md5sum.txt || true
+          echo "## Checksums" >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+          cat sha256sum.txt >> $GITHUB_STEP_SUMMARY || true
+          echo '```' >> $GITHUB_STEP_SUMMARY
+
+      # ── Upload ISO artifact ─────────────────────────────────
+      - name: Upload ISO artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: jarvis-os-iso
+          path: output/jarvis-os-*.iso
+          retention-days: 30
+
+      # ── Create GitHub Release ───────────────────────────────
+      - name: Create GitHub Release
+        if: startsWith(github.ref, 'refs/tags/v') || inputs.release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            output/jarvis-os-*.iso
+            output/sha256sum.txt
+            output/md5sum.txt
+          body: |
+            ## Jarvis OS
+
+            A custom Linux-based operating system with Jarvis as the desktop shell.
+
+            ### Features
+            - Jarvis Desktop as the primary desktop environment
+            - Wine + Proton pre-installed for Windows app/game compatibility
+            - TPM 2.0 support (kernel built-in)
+            - Secure Boot enrollment tools (sbctl)
+            - All major GPU drivers (NVIDIA, AMD, Intel)
+            - Btrfs with compression by default
+            - LUKS + TPM disk encryption support
+
+            ### Installation
+            1. Write the ISO to a USB drive:
+               ```
+               sudo dd if=jarvis-os-*.iso of=/dev/sdX bs=4M status=progress
+               sync
+               ```
+            2. Boot from the USB drive
+            3. Run the installer:
+               ```
+               sudo jarvis-os-installer
+               ```
+            4. Follow the prompts to install Jarvis OS to disk
+
+            ### Secure Boot
+            After installation, enroll Secure Boot keys:
+            ```
+            sudo enroll-secure-boot
+            ```
+
+            ### TPM 2.0
+            Set up TPM 2.0 disk encryption:
+            ```
+            sudo setup-tpm
+            ```
+
+            ### Windows App Compatibility
+            Windows apps and games run via Wine/Proton:
+            ```
+            wine /path/to/app.exe
+            steam  # Proton handles Windows games automatically
+            ```
+          draft: false
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

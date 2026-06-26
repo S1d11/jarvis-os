@@ -1,0 +1,23 @@
+# Build outputs
+output/
+work/
+tmp/
+
+# ISO files
+*.iso
+*.img
+
+# Build artifacts
+*.squashfs
+*.airootfs
+
+# OS-specific
+.DS_Store
+Thumbs.db
+
+# Editor
+*.swp
+*.swo
+*~
+.idea/
+.vscode/

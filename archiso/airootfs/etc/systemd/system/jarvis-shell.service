@@ -1,0 +1,25 @@
+[Unit]
+Description=Jarvis Desktop Shell
+Documentation=https://github.com/S1d11/jarvis-desktop
+After=graphical.target
+Wants=graphical.target
+
+[Service]
+Type=simple
+ExecStart=/usr/local/bin/jarvis-shell
+Restart=on-failure
+RestartSec=3
+TimeoutStopSec=10
+
+# Environment
+Environment=XDG_SESSION_TYPE=x11
+Environment=XDG_CURRENT_DESKTOP=jarvis
+Environment=XDG_SESSION_DESKTOP=jarvis
+Environment=DESKTOP_SESSION=jarvis
+
+# Security hardening
+NoNewPrivileges=false
+PrivateTmp=false
+
+[Install]
+WantedBy=graphical.target

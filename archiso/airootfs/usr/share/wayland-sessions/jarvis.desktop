@@ -1,0 +1,8 @@
+[Desktop Entry]
+Name=Jarvis (Wayland)
+Comment=Jarvis Desktop Shell — Wayland session
+Exec=/usr/local/bin/jarvis-shell
+TryExec=/usr/local/bin/jarvis-shell
+Type=Application
+DesktopNames=jarvis
+Keywords=jarvis;desktop;shell;ai;wayland;

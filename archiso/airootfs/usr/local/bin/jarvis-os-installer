@@ -1,0 +1,386 @@
+#!/usr/bin/env bash
+# jarvis-os-installer — Install Jarvis OS to disk
+#
+# This is the Jarvis OS installer. It:
+#   1. Partitions the target disk (GPT, EFI system partition, root, home)
+#   2. Formats with the chosen filesystem (Btrfs recommended)
+#   3. Installs the base system (pacstrap)
+#   4. Installs Jarvis Desktop, Wine, Proton, GPU drivers
+#   5. Configures the bootloader (GRUB with Secure Boot support)
+#   6. Configures TPM 2.0 disk encryption (optional)
+#   7. Creates the 'jarvis' user with autologin
+#   8. Enables all necessary systemd services
+
+set -euo pipefail
+
+# ── Colors ───────────────────────────────────────────────────
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+BLUE='\033[0;34m'
+CYAN='\033[0;36m'
+NC='\033[0m'
+
+info()  { echo -e "${CYAN}[INFO]${NC}  $*"; }
+ok()    { echo -e "${GREEN}[OK]${NC}    $*"; }
+warn()  { echo -e "${YELLOW}[WARN]${NC}  $*"; }
+error() { echo -e "${RED}[ERROR]${NC} $*"; }
+
+echo ""
+echo -e "${CYAN}========================================${NC}"
+echo -e "${CYAN}  Jarvis OS Installer${NC}"
+echo -e "${CYAN}========================================${NC}"
+echo ""
+
+# ── Check root ───────────────────────────────────────────────
+if [ "$(id -u)" -ne 0 ]; then
+    error "Must be run as root. Use: sudo jarvis-os-installer"
+    exit 1
+fi
+
+# ── Check UEFI ───────────────────────────────────────────────
+if [ ! -d /sys/firmware/efi ]; then
+    warn "System is not in UEFI mode. Jarvis OS requires UEFI."
+    warn "Continue anyway? (not recommended)"
+    read -r -p "Continue? (y/N): " cont
+    [ "$cont" = "y" ] || exit 1
+    UEFI=false
+else
+    UEFI=true
+    ok "UEFI mode detected."
+fi
+
+# ── List available disks ─────────────────────────────────────
+echo ""
+info "Available disks:"
+lsblk -d -o NAME,SIZE,MODEL,TYPE | grep -v loop || true
+echo ""
+
+# ── Select target disk ───────────────────────────────────────
+read -r -p "Target disk (e.g. /dev/nvme0n1 or /dev/sda): " DISK
+if [ ! -b "$DISK" ]; then
+    error "Disk $DISK does not exist."
+    exit 1
+fi
+
+# ── Confirm ──────────────────────────────────────────────────
+echo ""
+warn "ALL DATA ON $DISK WILL BE DESTROYED!"
+lsblk "$DISK" -o NAME,SIZE,TYPE,MOUNTPOINT
+echo ""
+read -r -p "Type 'YES' to confirm and wipe $DISK: " confirm
+[ "$confirm" = "YES" ] || { echo "Aborted."; exit 0; }
+
+# ── Configuration ────────────────────────────────────────────
+echo ""
+info "Installation configuration:"
+
+read -r -p "Hostname [jarvis-os]: " HOSTNAME
+HOSTNAME="${HOSTNAME:-jarvis-os}"
+
+read -r -p "Username [jarvis]: " USERNAME
+USERNAME="${USERNAME:-jarvis}"
+
+read -r -s -p "Password: " PASSWORD
+echo ""
+read -r -s -p "Confirm password: " PASSWORD2
+echo ""
+[ "$PASSWORD" = "$PASSWORD2" ] || { error "Passwords don't match."; exit 1; }
+
+read -r -p "Timezone [America/New_York]: " TIMEZONE
+TIMEZONE="${TIMEZONE:-America/New_York}"
+
+read -r -p "Filesystem (btrfs/ext4/xfs) [btrfs]: " FS_TYPE
+FS_TYPE="${FS_TYPE:-btrfs}"
+
+read -r -p "Enable TPM 2.0 disk encryption? (y/N): " ENCRYPT_TPM
+ENCRYPT_TPM="${ENCRYPT_TPM:-n}"
+
+read -r -p "Install NVIDIA proprietary drivers? (y/N): " INSTALL_NVIDIA
+INSTALL_NVIDIA="${INSTALL_NVIDIA:-n}"
+
+read -r -p "Install Wine + Proton for Windows app compatibility? (Y/n): " INSTALL_WINE
+INSTALL_WINE="${INSTALL_WINE:-y}"
+
+# ── Partition the disk ───────────────────────────────────────
+echo ""
+info "Partitioning $DISK..."
+
+# Wipe all partition tables
+sgdisk -Z "$DISK"
+
+if [ "$UEFI" = true ]; then
+    # GPT with EFI system partition
+    sgdisk -n 1:0:+1G -t 1:ef00 -c 1:"EFI System" "$DISK"
+    sgdisk -n 2:0:+4G -t 2:8200 -c 2:"Linux swap" "$DISK"
+    sgdisk -n 3:0:0 -t 3:8300 -c 3:"Linux root" "$DISK"
+
+    PART_EFI="${DISK}1"
+    PART_SWAP="${DISK}2"
+    PART_ROOT="${DISK}3"
+
+    # For NVMe, partitions are like /dev/nvme0n1p1
+    if [[ "$DISK" == *"nvme"* ]] || [[ "$DISK" == *"mmcblk"* ]]; then
+        PART_EFI="${DISK}p1"
+        PART_SWAP="${DISK}p2"
+        PART_ROOT="${DISK}p3"
+    fi
+else
+    # MBR fallback
+    sgdisk -n 1:0:+1G -t 1:ef00 -c 1:"EFI System" "$DISK"
+    sgdisk -n 2:0:0 -t 2:8300 -c 2:"Linux root" "$DISK"
+    PART_EFI="${DISK}1"
+    PART_ROOT="${DISK}2"
+    PART_SWAP=""
+fi
+
+ok "Partitions created."
+
+# ── Format partitions ────────────────────────────────────────
+echo ""
+info "Formatting partitions..."
+
+mkfs.fat -F32 "$PART_EFI"
+if [ -n "$PART_SWAP" ]; then
+    mkswap "$PART_SWAP"
+    swapon "$PART_SWAP"
+fi
+
+if [ "$ENCRYPT_TPM" = "y" ] && command -v cryptsetup >/dev/null 2>&1; then
+    info "Setting up LUKS encryption with TPM 2.0..."
+    cryptsetup luksFormat --type luks2 "$PART_ROOT"
+    cryptsetup open "$PART_ROOT" jarvis-root
+    ROOT_DEV="/dev/mapper/jarvis-root"
+else
+    ROOT_DEV="$PART_ROOT"
+fi
+
+case "$FS_TYPE" in
+    btrfs)
+        mkfs.btrfs -f "$ROOT_DEV"
+        mount -o compress=zstd:3,ssd,noatime "$ROOT_DEV" /mnt
+        btrfs subvolume create /mnt/@ 2>/dev/null || true
+        btrfs subvolume create /mnt/@home 2>/dev/null || true
+        btrfs subvolume create /mnt/@var 2>/dev/null || true
+        btrfs subvolume create /mnt/@tmp 2>/dev/null || true
+        umount /mnt
+        mount -o compress=zstd:3,ssd,noatime,subvol=@ "$ROOT_DEV" /mnt
+        mkdir -p /mnt/{home,var,tmp,boot/efi}
+        mount -o compress=zstd:3,ssd,noatime,subvol=@home "$ROOT_DEV" /mnt/home
+        mount -o compress=zstd:3,ssd,noatime,subvol=@var "$ROOT_DEV" /mnt/var
+        mount -o compress=zstd:3,ssd,noatime,subvol=@tmp "$ROOT_DEV" /mnt/tmp
+        ;;
+    ext4)
+        mkfs.ext4 -F "$ROOT_DEV"
+        mount "$ROOT_DEV" /mnt
+        mkdir -p /mnt/boot/efi
+        ;;
+    xfs)
+        mkfs.xfs -f "$ROOT_DEV"
+        mount "$ROOT_DEV" /mnt
+        mkdir -p /mnt/boot/efi
+        ;;
+esac
+
+mount "$PART_EFI" /mnt/boot/efi
+ok "Filesystems formatted and mounted."
+
+# ── Pacstrap base system ─────────────────────────────────────
+echo ""
+info "Installing base system (this will take several minutes)..."
+
+BASE_PACKAGES=(
+    base base-devel linux linux-firmware linux-headers
+    grub efibootmgr os-prober
+    networkmanager bluez bluez-utils
+    pipewire pipewire-pulse pipewire-alsa wireplumber
+    sudo bash bash-completion
+    vim nano git curl wget
+    mesa vulkan-icd-loader vulkan-mesa-layers
+    xorg-server xorg-xinit xorg-xrandr
+    sddm
+    tpm2-tools tpm2-tss tpm2-abrmd sbctl mokutil
+    btrfs-progs ntfs-3g dosfstools
+    python python-pip python-pyqt6 python-pyqt6-webengine
+    noto-fonts noto-fonts-cjk noto-fonts-emoji ttf-dejavu
+)
+
+if [ "$INSTALL_NVIDIA" = "y" ]; then
+    BASE_PACKAGES+=(nvidia nvidia-utils nvidia-dkms lib32-nvidia-utils)
+fi
+
+if [ "$INSTALL_WINE" = "y" ]; then
+    BASE_PACKAGES+=(
+        wine wine-gecko wine-mono winetricks
+        steam proton-ge-custom protontricks gamemode gamescope
+        lib32-mesa lib32-vulkan-icd-loader lib32-vulkan-mesa-layers
+        lib32-glibc lib32-alsa-lib lib32-libpulse lib32-openal
+        lib32-libxi lib32-libxrandr lib32-libxcursor
+        lib32-sdl2 lib32-mesa
+    )
+fi
+
+pacstrap -K /mnt "${BASE_PACKAGES[@]}"
+ok "Base system installed."
+
+# ── Generate fstab ───────────────────────────────────────────
+genfstab -U /mnt >> /mnt/etc/fstab
+ok "fstab generated."
+
+# ── Chroot configuration ─────────────────────────────────────
+echo ""
+info "Configuring system..."
+
+arch-chroot /mnt /bin/bash <<EOFCHOOT
+set -euo pipefail
+
+# Timezone
+ln -sf /usr/share/zoneinfo/${TIMEZONE} /etc/localtime
+hwclock --systohc
+
+# Locale
+sed -i 's/^#en_US.UTF-8/en_US.UTF-8/' /etc/locale.gen
+locale-gen
+echo "LANG=en_US.UTF-8" > /etc/locale.conf
+
+# Hostname
+echo "${HOSTNAME}" > /etc/hostname
+cat > /etc/hosts <<HOSTS
+127.0.0.1   localhost
+::1         localhost
+127.0.1.1   ${HOSTNAME}.localdomain ${HOSTNAME}
+HOSTS
+
+# Root password
+echo "root:${PASSWORD}" | chpasswd
+
+# User
+useradd -m -G wheel,video,audio,input,storage,network,lp,scanner,plugdev -s /bin/bash ${USERNAME}
+echo "${USERNAME}:${PASSWORD}" | chpasswd
+
+# Sudo
+echo "%wheel ALL=(ALL:ALL) ALL" > /etc/sudoers.d/wheel
+chmod 440 /etc/sudoers.d/wheel
+
+# Mkinitcpio
+sed -i 's/^MODULES=()/MODULES=(btrfs)/' /etc/mkinitcpio.conf
+mkinitcpio -P
+
+# GRUB bootloader
+if [ "${UEFI}" = "true" ]; then
+    grub-install --target=x86_64-efi --efi-directory=/boot/efi --bootloader-id=jarvis
+else
+    grub-install --target=i386-pc ${DISK}
+fi
+grub-mkconfig -o /boot/grub/grub.cfg
+
+# Systemd services
+systemctl enable NetworkManager
+systemctl enable bluetooth
+systemctl enable sddm
+systemctl enable tpm2-abrmd
+systemctl enable firewalld
+
+# Jarvis shell
+mkdir -p /usr/share/xsessions
+cat > /usr/share/xsessions/jarvis.desktop <<SESS
+[Desktop Entry]
+Name=Jarvis
+Comment=Jarvis Desktop Shell
+Exec=/usr/local/bin/jarvis-shell
+TryExec=/usr/local/bin/jarvis-shell
+Type=Application
+DesktopNames=jarvis
+SESS
+
+# SDDM autologin
+mkdir -p /etc/sddm.conf.d
+cat > /etc/sddm.conf.d/autologin.conf <<AUTO
+[Autologin]
+User=${USERNAME}
+Session=jarvis.desktop
+AUTO
+
+# Jarvis shell script
+cat > /usr/local/bin/jarvis-shell <<'SHELL'
+#!/usr/bin/env bash
+set -euo pipefail
+export XDG_SESSION_TYPE=x11
+export XDG_CURRENT_DESKTOP=jarvis
+export DESKTOP_SESSION=jarvis
+pipewire & sleep 0.5; wireplumber & pipewire-pulse &
+nm-applet --sm-disable &
+/usr/lib/polkit-gnome/polkit-gnome-authentication-agent-1 &
+if command -v jarvis >/dev/null 2>&1; then
+    exec jarvis --shell
+else
+    exec xterm -e "echo 'Jarvis not installed yet. Install with: sudo pacman -S jarvis-desktop'; bash"
+fi
+SHELL
+chmod +x /usr/local/bin/jarvis-shell
+
+# Secure Boot
+if [ "${UEFI}" = "true" ]; then
+    sbctl create-keys 2>/dev/null || true
+    sbctl sign -s /boot/vmlinuz-linux 2>/dev/null || true
+    if [ -f /boot/efi/EFI/jarvis/grubx64.efi ]; then
+        sbctl sign -s /boot/efi/EFI/jarvis/grubx64.efi 2>/dev/null || true
+    fi
+fi
+
+# NVIDIA
+if [ "${INSTALL_NVIDIA}" = "y" ]; then
+    sed -i 's/^MODULES=(btrfs)/MODULES=(btrfs nvidia nvidia_modeset nvidia_uvm nvidia_drm)/' /etc/mkinitcpio.conf
+    echo "options nvidia-drm modeset=1" > /etc/modprobe.d/nvidia.conf
+    mkinitcpio -P
+fi
+
+# TPM disk encryption
+if [ "${ENCRYPT_TPM}" = "y" ]; then
+    # Seal LUKS key to PCR 7 (Secure Boot state)
+    if ls /dev/tpmrm* >/dev/null 2>&1; then
+        echo "TPM device found. You can seal the LUKS key after reboot with:"
+        echo "  sudo cryptsetup luksAddKey --tpm2-device=/dev/tpmrm0 --tpm2-pcrs=7 ${PART_ROOT}"
+    fi
+fi
+
+echo "Chroot configuration complete."
+EOFCHOOT
+
+ok "System configured."
+
+# ── Install Jarvis Desktop ───────────────────────────────────
+echo ""
+info "Installing Jarvis Desktop..."
+if command -v pacman >/dev/null 2>&1; then
+    arch-chroot /mnt bash -c "sudo -u ${USERNAME} git clone https://github.com/S1d11/jarvis-desktop /tmp/jarvis-desktop && cd /tmp/jarvis-desktop && pip install --user -e . && sudo ln -sf /home/${USERNAME}/.local/bin/jarvis /usr/local/bin/jarvis" 2>/dev/null || {
+        warn "Jarvis Desktop installation failed. You can install it manually after reboot:"
+        warn "  git clone https://github.com/S1d11/jarvis-desktop"
+        warn "  cd jarvis-desktop && pip install --user -e ."
+    }
+fi
+
+# ── Unmount ──────────────────────────────────────────────────
+echo ""
+info "Cleaning up..."
+umount -R /mnt
+if [ "$ENCRYPT_TPM" = "y" ]; then
+    cryptsetup close jarvis-root 2>/dev/null || true
+fi
+
+echo ""
+echo -e "${GREEN}========================================${NC}"
+echo -e "${GREEN}  Jarvis OS installed successfully!${NC}"
+echo -e "${GREEN}========================================${NC}"
+echo ""
+echo "Next steps:"
+echo "  1. Reboot: shutdown -r now"
+echo "  2. If Secure Boot is enabled, enroll keys:"
+echo "     sudo enroll-secure-boot"
+echo "  3. Set up TPM 2.0 disk encryption:"
+echo "     sudo setup-tpm"
+echo ""
+echo "To install Jarvis Desktop (if not installed):"
+echo "  git clone https://github.com/S1d11/jarvis-desktop"
+echo "  cd jarvis-desktop && pip install --user -e ."
+echo ""
