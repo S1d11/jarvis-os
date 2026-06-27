@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Jarvis Orb</title>
+  <link rel="stylesheet" href="orb.css">
+</head>
+<body>
+  <div id="orb-overlay">
+
+    <!-- ═══ The Orb ═════════════════════════════════════════════ -->
+    <div id="orb-stage">
+      <div id="orb-glow"></div>
+      <div id="orb-outer-ring"></div>
+      <div id="orb-mid-ring"></div>
+      <div id="orb-core"></div>
+      <div id="orb-shimmer"></div>
+    </div>
+
+    <!-- ═══ State Label ══════════════════════════════════════════ -->
+    <div id="orb-state-label">Listening…</div>
+
+    <!-- ═══ Chat Panel ═══════════════════════════════════════════ -->
+    <div id="orb-panel">
+      <div id="orb-chat-feed"></div>
+      <div id="orb-input-area">
+        <textarea id="orb-input" placeholder="Ask Jarvis…" rows="1"></textarea>
+        <button id="orb-send">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M12 19V5M5 12l7-7 7 7"/>
+          </svg>
+        </button>
+      </div>
+      <div id="orb-footer">
+        <button id="orb-full" class="orb-footer-btn">Open full view</button>
+        <button id="orb-dismiss" class="orb-footer-btn">Dismiss</button>
+      </div>
+    </div>
+
+  </div>
+
+  <script src="orb.js"></script>
+</body>
+</html>

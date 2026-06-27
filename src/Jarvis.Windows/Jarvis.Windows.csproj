@@ -31,4 +31,9 @@
     <PackageReference Include="System.Management" Version="9.0.0" />
   </ItemGroup>
 
+  <!-- NAudio for microphone capture / wake word detection -->
+  <ItemGroup>
+    <PackageReference Include="NAudio" Version="2.2.1" />
+  </ItemGroup>
+
 </Project>

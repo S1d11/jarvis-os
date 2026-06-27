@@ -23,5 +23,12 @@ namespace Jarvis.Windows.Properties {
             get { return ((bool)(this["OpenSettings"])); }
             set { this["OpenSettings"] = value; }
         }
+
+        [System.Configuration.UserScopedSetting]
+        [System.Configuration.DefaultSettingValue("True")]
+        public bool WakeWordEnabled {
+            get { return ((bool)(this["WakeWordEnabled"])); }
+            set { this["WakeWordEnabled"] = value; }
+        }
     }
 }

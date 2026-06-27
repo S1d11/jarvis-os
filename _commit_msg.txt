@@ -1,0 +1,47 @@
+Siri-like orb overlay — summon Jarvis from anywhere via Win+J or "Hey Jarvis"
+
+Jarvis can now be invoked system-wide like Siri on Apple:
+
+Summon methods:
+  1. Win+J hotkey (global, works over any app)
+  2. "Hey Jarvis" wake word (NAudio microphone capture + energy VAD)
+  3. --orb CLI flag (background mode, orb only, no main window)
+
+New files:
+- OrbWindow.xaml/.cs — transparent, topmost, no-taskbar WPF window
+  with WebView2 rendering the orb UI. Doesn't steal focus from the
+  current app (ShowActivated=False). Positioned bottom-center of screen.
+  Animates in on summon, fades out on dismiss.
+
+- GlobalHotkeyService.cs — Win32 RegisterHotKey for Win+J
+  (falls back to Ctrl+Alt+J if Win+J is taken). Uses a hidden
+  HwndSource hook to receive WM_HOTKEY messages.
+
+- WakeWordService.cs — NAudio microphone capture (16kHz mono) with
+  two-stage detection: energy-based VAD + 2-syllable "Jar-vis" pattern
+  matching on the energy envelope. Silently disables if mic is
+  unavailable. Debounced to 5 seconds between triggers.
+
+- Web/orb.html — orb overlay layout (orb stage, state label, chat panel)
+- Web/orb.css — orb animations:
+    summoned: orb scales in with snap-back easing
+    listening: core pulses, glow speeds up
+    thinking: core spins, outer ring accelerates
+    responding: core glow expands
+    dismissing: orb shrinks + fades out
+  Glassmorphic chat panel with typing dots, gradient send button
+- Web/orb.js — orb state machine, chat logic, bridge communication
+
+Updated:
+- App.xaml.cs — manages both MainWindow and OrbWindow
+  Three modes: --shell (fullscreen), --tray (background), --orb (orb only)
+  Registers hotkey on main window SourceInitialized
+  Starts wake word listener on startup
+- Properties/Settings — added WakeWordEnabled (default: true)
+- manifest.txt — added orb.html, orb.css, orb.js
+
+Build: 0 warnings, 0 errors
+
+Generated with [Devin](https://devin.ai)
+
+Co-Authored-By: Devin <158243242+devin-ai-integration[bot]@users.noreply.github.com>
