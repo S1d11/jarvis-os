@@ -1,0 +1,36 @@
+Apple Siri aesthetic — true black + shifting multi-color accents
+
+Redesigned the entire color palette to match Apple's Siri aesthetic:
+
+Color palette:
+  Background:     #000000 (true black, not blue-tinted)
+  Elevated:       #1C1C1E (Apple system grey)
+  Text:           #FFFFFF (clean white)
+  Secondary:      #8E8E93 (Apple grey)
+  Tertiary:       #636366 (Apple dark grey)
+  Borders:        rgba(255,255,255,0.08) (subtle)
+
+Orb:
+  - Core: radial-gradient shifting through purple → blue → cyan
+  - Outer ring: conic-gradient with 7 colors cycling:
+    purple → blue → cyan → green → lime → orange → pink → purple
+  - Glow: hue-rotate animation cycling through all colors
+  - All orb colors shift and breathe — the signature Siri look
+
+Fullscreen:
+  - Background: pure black with subtle shifting ambient glow
+  - User bubbles: #1C1C1E dark grey pill, centered
+  - Jarvis text: plain white, no bubble
+  - Input pill: dark grey with subtle border
+  - Focus state: soft purple glow shadow
+
+Removed:
+  - Blue/purple single-accent color scheme
+  - Blue-tinted dark backgrounds
+  - Glassmorphism blur effects (Siri uses flat dark)
+
+Build: 0 warnings, 0 errors
+
+Generated with [Devin](https://devin.ai)
+
+Co-Authored-By: Devin <158243242+devin-ai-integration[bot]@users.noreply.github.com>
