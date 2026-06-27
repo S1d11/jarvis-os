@@ -1,0 +1,32 @@
+Monochrome layered palette — no true black, tonal depth
+
+Replaced all true black (#000000) with a layered monochrome palette
+that creates depth through tonal variation, like Apple's surfaces.
+
+New palette:
+  --bg-deep:       #0E0E11  (deepest — bottom of gradients)
+  --bg:            #151518  (base background)
+  --bg-mid:        #1C1C20  (mid layer)
+  --bg-elevated:   #232328  (elevated surfaces — bubbles, input)
+  --bg-elevated-2: #2C2C33  (hover states)
+  --bg-surface:    #34343C  (icon hover, highest elevation)
+  --text:          #F5F5F7  (slightly off-white, softer)
+  --text-secondary:#A0A0A8
+  --text-tertiary: #6A6A72
+
+Changes:
+- Fullscreen background: radial-gradient from #1C1C20 at top to
+  #0E0E11 at bottom — subtle vertical depth, not flat
+- User message bubbles: linear-gradient #232328 → #1C1C20 with
+  box-shadow for elevation
+- Input pill: same gradient + drop shadow for depth
+- Orb core body: rgba(40,40,48) → rgba(22,22,28) → rgba(16,16,20)
+  — dark grey glass, not black
+- All inset shadows use rgba(10,10,14) instead of rgba(0,0,0)
+- Borders slightly stronger (7% → 12% for strong)
+
+Build: 0 warnings, 0 errors
+
+Generated with [Devin](https://devin.ai)
+
+Co-Authored-By: Devin <158243242+devin-ai-integration[bot]@users.noreply.github.com>

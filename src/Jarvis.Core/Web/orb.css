@@ -1,17 +1,21 @@
 /* ═══════════════════════════════════════════════════════════════
-   Jarvis — Siri spectral orb aesthetic
-   Dark sphere with sweeping rainbow arc, soft ethereal glow
+   Jarvis — Glass sphere orb + Siri-style conversation
+   Monochrome layered palette — no true black, tonal depth
    ═══════════════════════════════════════════════════════════════ */
 
 :root {
-  --bg:               #000000;
-  --bg-elevated:      #1C1C1E;
-  --bg-elevated-2:    #2C2C2E;
-  --text:             #FFFFFF;
-  --text-secondary:   #8E8E93;
-  --text-tertiary:    #48484A;
-  --border:           rgba(255, 255, 255, 0.06);
-  --border-strong:    rgba(255, 255, 255, 0.10);
+  /* Monochrome layered palette — no true black, tonal depth */
+  --bg-deep:          #0E0E11;
+  --bg:               #151518;
+  --bg-mid:           #1C1C20;
+  --bg-elevated:      #232328;
+  --bg-elevated-2:    #2C2C33;
+  --bg-surface:       #34343C;
+  --text:             #F5F5F7;
+  --text-secondary:   #A0A0A8;
+  --text-tertiary:    #6A6A72;
+  --border:           rgba(255, 255, 255, 0.07);
+  --border-strong:    rgba(255, 255, 255, 0.12);
   --ease:             cubic-bezier(0.22, 1, 0.36, 1);
   --ease-out:         cubic-bezier(0.16, 1, 0.3, 1);
   --ease-snap:        cubic-bezier(0.34, 1.56, 0.64, 1);
@@ -123,14 +127,14 @@ html, body {
   overflow: hidden;
   background:
     /* Surface reflection on top-left */
-    radial-gradient(circle at 30% 25%, rgba(255,255,255,0.08) 0%, transparent 30%),
+    radial-gradient(circle at 30% 25%, rgba(255,255,255,0.10) 0%, transparent 30%),
     /* Edge light (glass catching light at rim) */
-    radial-gradient(circle at 70% 80%, rgba(120, 140, 180, 0.04) 0%, transparent 25%),
-    /* Deep dark body */
-    radial-gradient(circle at 50% 55%, rgba(12, 12, 16, 0.3) 0%, rgba(6, 6, 8, 0.95) 55%, rgba(2, 2, 4, 1) 100%);
+    radial-gradient(circle at 70% 80%, rgba(140, 150, 180, 0.06) 0%, transparent 25%),
+    /* Deep grey body — tonal depth, not black */
+    radial-gradient(circle at 50% 55%, rgba(40, 40, 48, 0.4) 0%, rgba(22, 22, 28, 0.95) 55%, rgba(16, 16, 20, 1) 100%);
   box-shadow:
     0 0 20px rgba(100, 100, 120, 0.08),
-    inset 0 0 18px rgba(0, 0, 0, 0.7);
+    inset 0 0 18px rgba(10, 10, 14, 0.6);
 }
 
 /* Internal spectral caustic — refracted light sweeping inside sphere */
@@ -215,7 +219,7 @@ html, body {
   box-shadow:
     0 0 28px rgba(120, 120, 140, 0.12),
     0 0 56px rgba(160, 140, 255, 0.06),
-    inset 0 0 18px rgba(0, 0, 0, 0.6);
+    inset 0 0 18px rgba(10, 10, 14, 0.5);
   animation: listen-breathe 1.6s var(--ease) infinite;
 }
 @keyframes listen-breathe {
@@ -240,7 +244,7 @@ html, body {
     0 0 36px rgba(160, 140, 255, 0.10),
     0 0 72px rgba(100, 200, 255, 0.06),
     0 0 110px rgba(140, 255, 200, 0.04),
-    inset 0 0 18px rgba(0, 0, 0, 0.55);
+    inset 0 0 18px rgba(10, 10, 14, 0.45);
 }
 #orb-compact:hover #orb-stage { transform: scale(1.05); }
 
@@ -251,7 +255,8 @@ html, body {
 #jarvis-fullscreen {
   display: none; flex-direction: column;
   width: 100%; height: 100%;
-  background: var(--bg);
+  background:
+    radial-gradient(ellipse at 50% 0%, var(--bg-mid) 0%, var(--bg) 40%, var(--bg-deep) 100%);
   opacity: 0;
   transition: opacity 0.35s var(--ease-out);
   position: relative;
@@ -297,7 +302,7 @@ html, body {
   z-index: 10;
   transition: all 0.2s var(--ease);
 }
-#fs-close:hover { color: var(--text-secondary); background: var(--bg-elevated); }
+#fs-close:hover { color: var(--text-secondary); background: var(--bg-elevated-2); }
 
 /* ── Conversation feed ───────────────────────────────────────── */
 #fs-conversation {
@@ -316,7 +321,7 @@ html, body {
 
 .msg-user {
   align-self: center;
-  background: var(--bg-elevated);
+  background: linear-gradient(180deg, var(--bg-elevated) 0%, var(--bg-mid) 100%);
   border: 1px solid var(--border);
   border-radius: 24px;
   padding: 14px 24px;
@@ -326,6 +331,7 @@ html, body {
   line-height: 1.45;
   max-width: 85%;
   text-align: center;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.15);
   animation: msg-in 0.4s var(--ease-out) both;
 }
 
@@ -368,7 +374,7 @@ html, body {
   display: flex;
   align-items: center;
   gap: 6px;
-  background: var(--bg-elevated);
+  background: linear-gradient(180deg, var(--bg-elevated) 0%, var(--bg-mid) 100%);
   border: 1px solid var(--border);
   border-radius: 28px;
   padding: 5px 5px 5px 10px;
@@ -377,6 +383,7 @@ html, body {
   width: calc(100% - 40px);
   position: relative;
   z-index: 2;
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.2);
   transition: border-color 0.25s var(--ease), box-shadow 0.25s var(--ease);
 }
 #fs-input-pill:focus-within {
@@ -395,7 +402,7 @@ html, body {
   flex-shrink: 0;
   transition: all 0.2s var(--ease);
 }
-.fs-pill-icon:hover { background: var(--bg-elevated-2); color: var(--text-secondary); }
+.fs-pill-icon:hover { background: var(--bg-surface); color: var(--text-secondary); }
 .fs-pill-icon:active { transform: scale(0.92); }
 
 #fs-mode-icon.voice-active {
@@ -424,5 +431,5 @@ html, body {
 
 ::-webkit-scrollbar { width: 4px; }
 ::-webkit-scrollbar-track { background: transparent; }
-::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.05); border-radius: 2px; }
-::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.10); }
+::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.08); border-radius: 2px; }
+::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.14); }
