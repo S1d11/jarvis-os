@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Jarvis</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div id="jarvis-shell">
+    <!-- ── Desktop Area ─────────────────────────────────── -->
+    <div id="desktop">
+      <!-- Widgets layer -->
+      <div id="widget-layer"></div>
+
+      <!-- Window container (managed windows appear here) -->
+      <div id="window-container"></div>
+    </div>
+
+    <!-- ── Dock ─────────────────────────────────────────── -->
+    <div id="dock">
+      <div class="dock-item" data-app="jarvis" title="Jarvis Assistant">
+        <span class="dock-icon">J</span>
+      </div>
+      <div class="dock-separator"></div>
+      <div id="dock-pinned"></div>
+      <div class="dock-separator"></div>
+      <div id="dock-running"></div>
+      <div class="dock-spacer"></div>
+      <div class="dock-item" data-action="settings" title="Settings">
+        <span class="dock-icon">S</span>
+      </div>
+      <div class="dock-item" data-action="power" title="Power">
+        <span class="dock-icon">P</span>
+      </div>
+    </div>
+
+    <!-- ── Jarvis Assistant Panel ───────────────────────── -->
+    <div id="assistant-panel" class="hidden">
+      <div id="assistant-header">
+        <div id="orb-container">
+          <div id="orb"></div>
+        </div>
+        <div id="assistant-title">Jarvis</div>
+        <button id="assistant-close" class="icon-btn">x</button>
+      </div>
+      <div id="chat-feed"></div>
+      <div id="chat-input-area">
+        <textarea id="chat-input" placeholder="Ask Jarvis..." rows="1"></textarea>
+        <button id="chat-send">Send</button>
+      </div>
+    </div>
+
+    <!-- ── Quick Settings ───────────────────────────────── -->
+    <div id="quick-settings" class="hidden">
+      <div class="qs-section">
+        <div class="qs-item" id="qs-wifi">
+          <span class="qs-icon">WiFi</span>
+          <span class="qs-label">Wi-Fi</span>
+        </div>
+        <div class="qs-item" id="qs-bt">
+          <span class="qs-icon">BT</span>
+          <span class="qs-label">Bluetooth</span>
+        </div>
+        <div class="qs-item" id="qs-airplane">
+          <span class="qs-icon">AP</span>
+          <span class="qs-label">Airplane</span>
+        </div>
+      </div>
+      <div class="qs-section">
+        <div class="qs-slider">
+          <label>Volume</label>
+          <input type="range" id="qs-volume" min="0" max="100" value="50">
+        </div>
+        <div class="qs-slider">
+          <label>Brightness</label>
+          <input type="range" id="qs-brightness" min="0" max="100" value="100">
+        </div>
+      </div>
+      <div class="qs-section">
+        <div class="qs-item" id="qs-lock">
+          <span class="qs-icon">L</span>
+          <span class="qs-label">Lock</span>
+        </div>
+        <div class="qs-item" id="qs-restart">
+          <span class="qs-icon">R</span>
+          <span class="qs-label">Restart</span>
+        </div>
+        <div class="qs-item" id="qs-shutdown">
+          <span class="qs-icon">S</span>
+          <span class="qs-label">Shut down</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── Power Menu ───────────────────────────────────── -->
+    <div id="power-menu" class="hidden">
+      <div class="power-item" data-action="lock">Lock</div>
+      <div class="power-item" data-action="restart">Restart</div>
+      <div class="power-item" data-action="sleep">Sleep</div>
+      <div class="power-item" data-action="logoff">Sign out</div>
+      <div class="power-item danger" data-action="shutdown">Shut down</div>
+    </div>
+
+    <!-- ── Start Menu / App Launcher ────────────────────── -->
+    <div id="start-menu" class="hidden">
+      <div id="start-search">
+        <input type="text" id="start-search-input" placeholder="Search apps..." autocomplete="off">
+      </div>
+      <div id="start-apps"></div>
+    </div>
+
+    <!-- ── Clock Widget ─────────────────────────────────── -->
+    <div id="clock-widget" class="widget">
+      <div id="clock-time">00:00</div>
+      <div id="clock-date">Loading...</div>
+    </div>
+  </div>
+
+  <script src="md.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>

@@ -1,241 +1,145 @@
-# Jarvis OS
+# Jarvis for Windows
 
-A custom Linux-based operating system with Jarvis as the desktop shell.
+A native Windows desktop application that serves as an AI-powered desktop shell.
+Built with WPF (.NET 10) and WebView2 — no Electron, no Python runtime required.
 
-Jarvis OS replaces the traditional desktop environment (GNOME, KDE, XFCE)
-with the Jarvis AI-powered shell. It boots directly into Jarvis, which
-serves as the window manager, dock, widget layer, and AI assistant —
-all in one.
+Jarvis can run as a normal desktop app **or replace Windows Explorer as the
+desktop shell** (like a custom Windows DE). When in shell mode, Jarvis boots
+directly into the desktop with a dock, widgets, quick settings, power menu,
+and an AI assistant — no taskbar, no Start menu, just Jarvis.
 
 ## Features
 
-- **Jarvis Desktop as the shell** — no GNOME/KDE/XFCE. Jarvis IS the desktop.
-- **Windows app compatibility** — Wine + Proton pre-installed. Run any
-  Windows `.exe` or game via Steam/Proton with near-native GPU performance.
-- **TPM 2.0** — native kernel support. TPM-backed LUKS disk encryption
-  with PCR 7 sealing (keys are tied to Secure Boot state).
-- **Secure Boot** — kernel and bootloader signed with your own keys.
-  Enrollment script included. Microsoft keys optional (for dual-boot).
-- **All GPU drivers** — NVIDIA (proprietary), AMD (amdgpu), Intel (i915/xe).
-- **Btrfs** — default filesystem with zstd compression, snapshots, and
-  subvolumes for root/home/var/tmp.
-- **32-bit support** — multilib enabled for older Windows games and apps.
-- **AI on-device** — local LLM inference, voice recognition, vision —
-  no cloud required.
+- **Dock** — app launcher with pinned and running apps (like macOS dock)
+- **AI Assistant** — chat panel with orb animation, markdown rendering
+- **Quick Settings** — volume, brightness, WiFi/Bluetooth toggles, power options
+- **Start Menu** — searchable app launcher
+- **Power Menu** — lock, sleep, restart, shut down, sign out
+- **Clock Widget** — live clock and date
+- **System Tray** — minimize to tray, context menu with settings and power
+- **Shell Replacement** — replace `explorer.exe` with Jarvis as the Windows shell
+- **System Control** — run PowerShell/CMD commands from the assistant
+- **Window Management** — list, focus, close, minimize, maximize, snap windows
+- **Process Management** — list and kill running processes
+- **Dark Theme** — native dark title bar, dark UI throughout
 
-## Quick Start
+## Requirements
 
-### 1. Download the ISO
+- Windows 10/11 (x64)
+- WebView2 Runtime (preinstalled on Windows 11; bundled with Edge on Windows 10)
+- .NET 10 SDK (only to build — the published `.exe` is self-contained)
 
-Download the latest `jarvis-os-*.iso` from
-[Releases](https://github.com/S1d11/jarvis-os/releases).
+## Build & run from source
 
-### 2. Write to USB
-
-**Linux:**
-```bash
-sudo dd if=jarvis-os-*.iso of=/dev/sdX bs=4M status=progress
-sync
+```powershell
+dotnet run --project src\Jarvis.Windows\Jarvis.Windows.csproj -c Debug
 ```
 
-**Windows:** Use [Rufus](https://rufus.ie) or [balenaEtcher](https://etcher.balena.io).
+## Publish a self-contained single-file `.exe`
 
-**macOS:**
-```bash
-diskutil unmountDisk /dev/diskN
-sudo dd if=jarvis-os-*.iso of=/dev/rdiskN bs=4m
-diskutil eject /dev/diskN
+```powershell
+powershell -ExecutionPolicy Bypass -File publish.ps1
 ```
 
-### 3. Boot
+Produces `publish\Jarvis.exe` (~170 MB, no .NET runtime needed on the target).
 
-1. Insert the USB drive and boot from it (enable UEFI in BIOS if needed).
-2. Select "Jarvis OS" from the boot menu.
-3. The live environment boots directly into Jarvis Desktop.
+## Build the `.exe` installer
 
-### 4. Install to disk
+1. Install [Inno Setup](https://jrsoftware.org/isdl.php).
+2. Run:
 
-Once booted into the live environment, open a terminal and run:
+   ```powershell
+   powershell -ExecutionPolicy Bypass -File publish.ps1 -MakeInstaller
+   ```
 
-```bash
-sudo jarvis-os-installer
-```
+   This produces `installer\Output\Jarvis-Setup-1.0.0.exe` — a standard Windows
+   installer with Start Menu / desktop / startup shortcuts and a clean
+   uninstaller that restores Explorer if the shell was replaced.
 
-Follow the prompts to:
-- Select a target disk
-- Choose filesystem (Btrfs recommended)
-- Enable TPM 2.0 disk encryption (optional)
-- Install NVIDIA drivers (optional)
-- Install Wine + Proton (recommended)
-- Create a user account
+## Shell Replacement
 
-### 5. Post-install
+Jarvis can replace Windows Explorer as the desktop shell. After installation:
 
-**Secure Boot:**
-```bash
-sudo enroll-secure-boot
-```
+1. Open the tray icon → right-click → "Replace Explorer shell"
+2. Reboot
+3. Windows boots directly into Jarvis (no Explorer desktop, no taskbar)
 
-**TPM 2.0 disk encryption:**
-```bash
-sudo setup-tpm
-```
-
-## Running Windows Apps
-
-### General Windows applications
-```bash
-wine /path/to/application.exe
-```
-
-### Windows games via Steam
-```bash
-steam
-```
-Steam's Proton compatibility layer runs Windows games automatically.
-In Steam → Settings → Compatibility → "Enable Steam Play for all titles".
-
-### Windows games directly (without Steam)
-```bash
-proton run /path/to/game.exe
-```
-
-### Winetricks (install Windows dependencies)
-```bash
-winetricks d3dx9 vcrun2019 dotnet48
-```
+To restore Explorer:
+- Right-click the tray icon → uncheck "Replace Explorer shell"
+- Or run: `reg add "HKLM\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Winlogon" /v Shell /t REG_SZ /d "explorer.exe" /f`
+- Or boot into Safe Mode and run the registry command above
+- The uninstaller automatically restores Explorer
 
 ## Architecture
 
 ```
-┌─────────────────────────────────────────────────────┐
-│              User Applications                       │
-│   Native Linux apps  │  Windows apps (Wine/Proton)  │
-├──────────────────────┴──────────────────────────────┤
-│              Jarvis Desktop Shell                    │
-│  (AI-powered DE — WM, dock, widgets, assistant)     │
-├──────────────────────────────────────────────────────┤
-│           Display Server (X11 / Wayland)             │
-├──────────────────────────────────────────────────────┤
-│              System Services                         │
-│  systemd │ NetworkManager │ PipeWire │ TPM2 │ BlueZ  │
-├──────────────────────────────────────────────────────┤
-│           Linux Kernel 6.x (x86_64)                  │
-│  TPM 2.0 │ Secure Boot │ GPU drivers │ Btrfs │ LUKS  │
-├──────────────────────────────────────────────────────┤
-│           UEFI Firmware (Secure Boot)                │
-└──────────────────────────────────────────────────────┘
+┌─────────────────────────────────────────────┐
+│           Web UI (HTML/CSS/JS)               │
+│  Dock · Assistant · Quick Settings · Widgets │
+├───────────────────────────────────────────────┤
+│         WebView2 (Chromium rendering)         │
+├───────────────────────────────────────────────┤
+│              Bridge (JSON RPC)                │
+├───────────────────────────────────────────────┤
+│              Jarvis.Core                      │
+│  ShellService · SystemControl · ProcessMgr    │
+│  WindowService · ConfigService                │
+├───────────────────────────────────────────────┤
+│              Jarvis.Windows                   │
+│  WPF MainWindow · Win32 P/Invoke · Tray       │
+│  WindowsSystemAccess · WindowsWindowAccess    │
+├───────────────────────────────────────────────┤
+│              Windows OS (Win32)               │
+└───────────────────────────────────────────────┘
 ```
-
-See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for full details.
-
-## Build from Source
-
-### Prerequisites
-- Arch Linux (or use the Docker-based CI build)
-- `archiso` package: `sudo pacman -S archiso`
-- ~20 GB free disk space
-
-### Build the ISO
-```bash
-git clone https://github.com/S1d11/jarvis-os
-cd jarvis-os
-sudo ./scripts/build-iso.sh
-```
-
-The ISO will be in `output/jarvis-os-YYYY.MM.DD-x86_64.iso`.
-
-### Build via Docker (any Linux host)
-```bash
-docker run --rm --privileged \
-  -v "$PWD:/work" \
-  -v "$PWD/output:/output" \
-  archlinux:latest \
-  bash -c 'pacman -Syu --noconfirm archiso git && cd /work && mkarchiso -v -w /tmp/build -o /output archiso/'
-```
-
-### Build via GitHub Actions
-Push a tag (`git tag v1.0.0 && git push origin v1.0.0`) and the CI
-workflow will build the ISO and attach it to a GitHub Release.
 
 ## Project Structure
 
 ```
 jarvis-os/
-├── archiso/                    # archiso profile
-│   ├── profiledef.sh           # ISO metadata
-│   ├── packages.x86_64         # Package list (400+ packages)
-│   ├── pacman.conf             # pacman config (multilib + AUR)
-│   ├── airootfs/               # Root filesystem overlay
-│   │   ├── etc/
-│   │   │   ├── systemd/system/ # systemd services
-│   │   │   │   └── jarvis-shell.service
-│   │   │   ├── sddm.conf.d/    # Display manager autologin
-│   │   │   └── security/       # Security policies
-│   │   ├── usr/
-│   │   │   ├── local/bin/      # System scripts
-│   │   │   │   ├── jarvis-shell          # Shell launcher
-│   │   │   │   ├── jarvis-os-installer   # OS installer
-│   │   │   │   ├── enroll-secure-boot    # Secure Boot setup
-│   │   │   │   └── setup-tpm             # TPM 2.0 setup
-│   │   │   └── share/
-│   │   │       ├── xsessions/jarvis.desktop
-│   │   │       └── wayland-sessions/jarvis.desktop
-│   │   └── root/.config/jarvis/  # Default Jarvis config
-│   ├── syslinux/               # BIOS boot config
-│   └── boot/grub/              # UEFI boot config
-├── scripts/
-│   ├── build-iso.sh            # ISO build script
-│   └── install-jarvis.sh       # Jarvis installation into ISO
-├── docs/
-│   └── ARCHITECTURE.md         # Full architecture document
-└── .github/workflows/
-    └── build-iso.yml           # CI: build ISO on tag push
+├── Jarvis.sln
+├── publish.ps1                  # build .exe (+ optional installer)
+├── installer/setup.iss          # Inno Setup script
+├── src/
+│   ├── Jarvis.Core/             # shared core (platform-agnostic)
+│   │   ├── Jarvis.Core.csproj
+│   │   ├── AppContext.cs        # app state, data dir
+│   │   ├── Bridge.cs            # JSON RPC: web <-> C# services
+│   │   ├── IBridgeHost.cs       # platform interface
+│   │   ├── ConfigService.cs     # persisted settings
+│   │   ├── Shell/
+│   │   │   ├── ShellService.cs  # dock, pinned apps, power actions
+│   │   │   └── ISystemAccess.cs # platform-specific system access
+│   │   ├── Services/
+│   │   │   ├── SystemControlService.cs  # PowerShell, CMD, system info
+│   │   │   ├── ProcessService.cs        # process list, launch, kill
+│   │   │   └── WindowService.cs         # window list, focus, snap
+│   │   └── Web/                 # embedded web UI
+│   │       ├── index.html       # shell layout (dock, panels, widgets)
+│   │       ├── styles.css       # dark theme
+│   │       ├── app.js           # bridge, shell logic, UI events
+│   │       ├── md.js            # markdown renderer
+│   │       └── manifest.txt     # list of embedded resources
+│   └── Jarvis.Windows/          # Windows-specific WPF app
+│       ├── Jarvis.Windows.csproj
+│       ├── App.xaml(.cs)        # app bootstrap, arg parsing
+│       ├── MainWindow.xaml(.cs) # WebView2 host, tray, dark title bar
+│       ├── NotifyIconHelper.cs  # system tray (WinForms NotifyIcon)
+│       ├── WindowsSystemAccess.cs    # Win32: lock, shutdown, sleep, launch
+│       ├── WindowsWindowAccess.cs    # Win32: enumerate, focus, snap windows
+│       ├── GlobalUsings.cs
+│       ├── app.manifest         # DPI awareness, UAC
+│       └── Properties/Settings  # shell mode, start minimized
+└── .github/workflows/           # CI (to be added)
 ```
 
-## Security
+## Data Location
 
-### Secure Boot Flow
-```
-UEFI → Shim (MS-signed) → GRUB (Jarvis-signed) → Kernel (Jarvis-signed)
-→ Kernel Lockdown (confidentiality) → TPM PCR 7 measured
-```
-
-### TPM 2.0 Disk Encryption
-```
-Boot → PCR 7 measured → tpm2-abrmd unseals LUKS key → Disk decrypted
-```
-
-If the kernel or bootloader is tampered with, PCR 7 changes and the disk
-cannot be decrypted, preventing offline attacks.
-
-## Compatibility
-
-| What | Status |
-|------|--------|
-| Windows .exe apps | Wine 9.x |
-| Windows games (Steam) | Proton-GE |
-| DirectX 9/10/11 games | DXVK (Vulkan) |
-| DirectX 12 games | VKD3D (Vulkan) |
-| .NET apps | Wine-Mono |
-| NVIDIA GPUs | Proprietary drivers |
-| AMD GPUs | amdgpu (open-source) |
-| Intel GPUs | i915 / xe (open-source) |
-| TPM 2.0 | Kernel native |
-| Secure Boot | sbctl + shim |
-| Bluetooth | BlueZ |
-| WiFi | NetworkManager + wpa_supplicant |
-| Audio | PipeWire (PulseAudio-compatible) |
-| NTFS partitions | ntfs-3g (read/write) |
+All user data lives under `%LOCALAPPDATA%\Jarvis\`:
+- `config.json` — settings
+- `web/` — extracted UI cache (regenerated each launch)
+- `pinned_apps.json` — dock pinned apps
 
 ## License
 
 MIT — see [LICENSE](LICENSE).
-
-## Credits
-
-- Linux kernel by Linus Torvalds and contributors
-- archiso by Arch Linux
-- Wine by WineHQ
-- Proton by Valve
-- Jarvis Desktop by Siddharth Reddy Kota

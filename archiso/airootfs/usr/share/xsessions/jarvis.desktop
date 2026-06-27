@@ -1,8 +1,0 @@
-[Desktop Entry]
-Name=Jarvis
-Comment=Jarvis Desktop Shell — AI-powered desktop environment
-Exec=/usr/local/bin/jarvis-shell
-TryExec=/usr/local/bin/jarvis-shell
-Type=Application
-DesktopNames=jarvis
-Keywords=jarvis;desktop;shell;ai;

@@ -1,23 +1,19 @@
 # Build outputs
-output/
-work/
-tmp/
+publish/
+bin/
+obj/
 
-# ISO files
-*.iso
-*.img
-
-# Build artifacts
-*.squashfs
-*.airootfs
+# Installer output
+installer/Output/
 
 # OS-specific
 .DS_Store
 Thumbs.db
 
-# Editor
+# IDE
 *.swp
 *.swo
 *~
 .idea/
 .vscode/
+*.user
