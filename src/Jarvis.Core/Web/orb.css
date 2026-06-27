@@ -1,11 +1,12 @@
 /* ═══════════════════════════════════════════════════════════════
-   Jarvis Orb — Siri-like floating overlay
+   Jarvis Orb — Floating assistant
+   Compact: just the orb, floats anywhere, draggable
+   Expanded: orb header + chat panel
    ═══════════════════════════════════════════════════════════════ */
 
 :root {
-  --bg:           transparent;
-  --surface-1:    rgba(16, 16, 24, 0.78);
-  --surface-2:    rgba(28, 28, 40, 0.82);
+  --surface-1:    rgba(16, 16, 24, 0.82);
+  --surface-2:    rgba(28, 28, 40, 0.86);
   --glass-border: rgba(255, 255, 255, 0.08);
   --glass-hi:     rgba(255, 255, 255, 0.05);
   --text:         #ECECF1;
@@ -15,7 +16,6 @@
   --accent-2:     #9B7CFF;
   --accent-glow:  rgba(108, 124, 255, 0.4);
   --accent-soft:  rgba(108, 124, 255, 0.12);
-  --danger:       #FF5C7A;
   --r-md:  12px;
   --r-lg:  16px;
   --r-xl:  20px;
@@ -23,7 +23,6 @@
   --ease-out:   cubic-bezier(0.16, 1, 0.3, 1);
   --ease-snap:  cubic-bezier(0.34, 1.56, 0.64, 1);
   --font:        'Segoe UI', system-ui, sans-serif;
-  --mono:        'Cascadia Code', monospace;
 }
 
 *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
@@ -41,37 +40,37 @@ html, body {
   overflow: hidden;
 }
 
-#orb-overlay {
-  width: 100%;
-  height: 100%;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: flex-end;
-  padding: 0 0 24px 0;
-  position: relative;
-}
+/* ═══════════════════════════════════════════════════════════════
+   COMPACT MODE — just the floating orb (80x80)
+   ═══════════════════════════════════════════════════════════════ */
 
-/* ═══ The Orb ══════════════════════════════════════════════════ */
-#orb-stage {
-  position: relative;
-  width: 120px;
-  height: 120px;
+#orb-compact {
+  width: 80px;
+  height: 80px;
   display: flex;
   align-items: center;
   justify-content: center;
-  margin-bottom: 20px;
+  cursor: grab;
+  position: relative;
+}
+#orb-compact:active { cursor: grabbing; }
+
+#orb-compact.hidden { display: none; }
+
+/* ── Orb stage (compact) ──────────────────────────────────────── */
+#orb-stage {
+  position: relative;
+  width: 64px;
+  height: 64px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   transform: scale(0);
   opacity: 0;
   transition: transform 0.5s var(--ease-snap), opacity 0.3s var(--ease-out);
 }
-
-#orb-overlay.summoned #orb-stage {
-  transform: scale(1);
-  opacity: 1;
-}
-
-#orb-overlay.dismissing #orb-stage {
+#orb-compact.summoned #orb-stage { transform: scale(1); opacity: 1; }
+#orb-compact.dismissing #orb-stage {
   transform: scale(0);
   opacity: 0;
   transition: transform 0.3s var(--ease), opacity 0.25s var(--ease);
@@ -80,10 +79,11 @@ html, body {
 /* Outer glow */
 #orb-glow {
   position: absolute;
-  inset: -40px;
+  inset: -20px;
   border-radius: 50%;
   background: radial-gradient(circle, var(--accent-glow) 0%, transparent 60%);
   animation: glow-pulse 3s var(--ease) infinite;
+  pointer-events: none;
 }
 @keyframes glow-pulse {
   0%, 100% { opacity: 0.5; transform: scale(1); }
@@ -107,7 +107,7 @@ html, body {
 /* Mid ring — counter-rotating */
 #orb-mid-ring {
   position: absolute;
-  inset: 15px;
+  inset: 10px;
   border-radius: 50%;
   background: conic-gradient(from 180deg,
     var(--accent-2), transparent, var(--accent), transparent);
@@ -119,84 +119,64 @@ html, body {
 
 /* Core — the solid center */
 #orb-core {
-  width: 54px;
-  height: 54px;
+  width: 30px;
+  height: 30px;
   border-radius: 50%;
   background: radial-gradient(circle at 35% 35%,
     var(--accent) 0%, var(--accent-2) 70%);
   box-shadow:
-    0 0 30px var(--accent-glow),
-    inset 0 0 20px rgba(255,255,255,0.15);
-  transition: transform 0.4s var(--ease-snap),
-              box-shadow 0.4s var(--ease);
+    0 0 20px var(--accent-glow),
+    inset 0 0 12px rgba(255,255,255,0.15);
+  transition: transform 0.4s var(--ease-snap), box-shadow 0.4s var(--ease);
 }
 
 /* Shimmer highlight */
 #orb-shimmer {
   position: absolute;
-  top: 18px;
-  left: 22px;
-  width: 18px;
-  height: 14px;
+  top: 10px;
+  left: 14px;
+  width: 10px;
+  height: 8px;
   border-radius: 50%;
   background: rgba(255,255,255,0.25);
-  filter: blur(4px);
+  filter: blur(2px);
   pointer-events: none;
 }
 
-/* ── State: Listening ───────────────────────────────────────── */
-#orb-overlay.listening #orb-core {
-  animation: orb-listen-pulse 1s var(--ease) infinite;
-}
+/* ── Compact state animations ─────────────────────────────────── */
+#orb-compact.listening #orb-core { animation: orb-listen-pulse 1s var(--ease) infinite; }
 @keyframes orb-listen-pulse {
   0%, 100% { transform: scale(1); }
-  50% { transform: scale(1.12); }
+  50% { transform: scale(1.15); }
 }
-#orb-overlay.listening #orb-glow {
-  animation: glow-pulse-fast 0.8s var(--ease) infinite;
-}
+#orb-compact.listening #orb-glow { animation: glow-pulse-fast 0.8s var(--ease) infinite; }
 @keyframes glow-pulse-fast {
   0%, 100% { opacity: 0.6; transform: scale(1.1); }
   50% { opacity: 0.9; transform: scale(1.3); }
 }
 
-/* ── State: Thinking ────────────────────────────────────────── */
-#orb-overlay.thinking #orb-core {
-  animation: orb-think-spin 2s linear infinite;
-}
-@keyframes orb-think-spin {
-  to { transform: rotate(360deg); }
-}
-#orb-overlay.thinking #orb-outer-ring {
-  animation: orb-rotate 1.5s linear infinite;
-}
+#orb-compact.thinking #orb-core { animation: orb-think-spin 2s linear infinite; }
+@keyframes orb-think-spin { to { transform: rotate(360deg); } }
+#orb-compact.thinking #orb-outer-ring { animation: orb-rotate 1.5s linear infinite; }
 
-/* ── State: Responding ──────────────────────────────────────── */
-#orb-overlay.responding #orb-core {
-  animation: orb-respond-glow 1.5s var(--ease) infinite;
-}
+#orb-compact.responding #orb-core { animation: orb-respond-glow 1.5s var(--ease) infinite; }
 @keyframes orb-respond-glow {
-  0%, 100% { box-shadow: 0 0 30px var(--accent-glow), inset 0 0 20px rgba(255,255,255,0.15); }
-  50% { box-shadow: 0 0 50px var(--accent-glow), 0 0 80px var(--accent-glow), inset 0 0 30px rgba(255,255,255,0.2); }
+  0%, 100% { box-shadow: 0 0 20px var(--accent-glow), inset 0 0 12px rgba(255,255,255,0.15); }
+  50% { box-shadow: 0 0 40px var(--accent-glow), 0 0 60px var(--accent-glow), inset 0 0 20px rgba(255,255,255,0.2); }
 }
 
-/* ═══ State Label ══════════════════════════════════════════════ */
-#orb-state-label {
-  font-size: 13px;
-  font-weight: 500;
-  color: var(--text-2);
-  letter-spacing: 0.5px;
-  margin-bottom: 20px;
-  opacity: 0;
-  transition: opacity 0.3s var(--ease);
-}
-#orb-overlay.summoned #orb-state-label { opacity: 1; }
-#orb-overlay.dismissing #orb-state-label { opacity: 0; }
+/* Hover hint — subtle expand on hover */
+#orb-compact:hover #orb-stage { transform: scale(1.08); }
 
-/* ═══ Chat Panel ═══════════════════════════════════════════════ */
-#orb-panel {
+/* ═══════════════════════════════════════════════════════════════
+   EXPANDED MODE — orb header + chat panel (440x600)
+   ═══════════════════════════════════════════════════════════════ */
+
+#orb-expanded {
   width: 100%;
-  max-width: 440px;
+  height: 100%;
+  display: none;
+  flex-direction: column;
   background: var(--surface-1);
   border: 1px solid var(--glass-border);
   border-radius: var(--r-xl);
@@ -204,27 +184,112 @@ html, body {
   -webkit-backdrop-filter: blur(28px) saturate(1.5);
   backdrop-filter: blur(28px) saturate(1.5);
   overflow: hidden;
-  transform: translateY(20px) scale(0.96);
   opacity: 0;
-  transition: transform 0.4s var(--ease-out) 0.1s, opacity 0.3s var(--ease-out) 0.1s;
+  transform: scale(0.9);
+  transition: opacity 0.3s var(--ease-out), transform 0.3s var(--ease-snap);
 }
-#orb-overlay.summoned #orb-panel {
-  transform: translateY(0) scale(1);
+#orb-expanded.visible {
   opacity: 1;
+  transform: scale(1);
 }
-#orb-overlay.dismissing #orb-panel {
-  transform: translateY(20px) scale(0.96);
-  opacity: 0;
-  transition: transform 0.2s var(--ease), opacity 0.15s var(--ease);
+#orb-expanded.active { display: flex; }
+
+/* ── Header (drag handle + mini orb) ──────────────────────────── */
+#orb-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--glass-border);
+  cursor: grab;
+  flex-shrink: 0;
+}
+#orb-header:active { cursor: grabbing; }
+
+#orb-stage-mini {
+  position: relative;
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+#orb-glow-mini {
+  position: absolute;
+  inset: -8px;
+  border-radius: 50%;
+  background: radial-gradient(circle, var(--accent-glow) 0%, transparent 60%);
+  animation: glow-pulse 3s var(--ease) infinite;
+}
+#orb-outer-ring-mini {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background: conic-gradient(from 0deg,
+    var(--accent), var(--accent-2), var(--accent));
+  animation: orb-rotate 6s linear infinite;
+  mask: radial-gradient(circle, transparent 50%, black 52%, black 56%, transparent 58%);
+  -webkit-mask: radial-gradient(circle, transparent 50%, black 52%, black 56%, transparent 58%);
+}
+#orb-mid-ring-mini {
+  position: absolute;
+  inset: 5px;
+  border-radius: 50%;
+  background: conic-gradient(from 180deg,
+    var(--accent-2), transparent, var(--accent), transparent);
+  animation: orb-rotate-rev 4s linear infinite;
+  mask: radial-gradient(circle, transparent 46%, black 48%, black 50%, transparent 52%);
+  -webkit-mask: radial-gradient(circle, transparent 46%, black 48%, black 50%, transparent 52%);
+}
+#orb-core-mini {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 35%,
+    var(--accent) 0%, var(--accent-2) 70%);
+  box-shadow: 0 0 12px var(--accent-glow);
 }
 
+#orb-title {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text);
+  letter-spacing: 0.3px;
+}
+
+#orb-state-label {
+  font-size: 12px;
+  color: var(--text-dim);
+  margin-left: auto;
+  margin-right: 8px;
+}
+
+#orb-close {
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  border: none;
+  background: transparent;
+  color: var(--text-dim);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  transition: all 0.15s var(--ease);
+}
+#orb-close:hover { background: var(--glass-hi); color: var(--text); }
+
+/* ── Chat feed ────────────────────────────────────────────────── */
 #orb-chat-feed {
-  max-height: 280px;
+  flex: 1;
   overflow-y: auto;
   padding: 18px;
   display: flex;
   flex-direction: column;
   gap: 14px;
+  min-height: 0;
 }
 
 .msg {
@@ -267,12 +332,13 @@ html, body {
   30% { transform: translateY(-6px); opacity: 1; }
 }
 
-/* ── Input ──────────────────────────────────────────────────── */
+/* ── Input area ───────────────────────────────────────────────── */
 #orb-input-area {
   display: flex;
   padding: 14px;
   border-top: 1px solid var(--glass-border);
   gap: 10px;
+  flex-shrink: 0;
 }
 #orb-input {
   flex: 1;
@@ -310,11 +376,12 @@ html, body {
 #orb-send:hover { transform: scale(1.06); box-shadow: 0 4px 16px var(--accent-glow); }
 #orb-send:active { transform: scale(0.96); }
 
-/* ── Footer ─────────────────────────────────────────────────── */
+/* ── Footer ───────────────────────────────────────────────────── */
 #orb-footer {
   display: flex;
   gap: 8px;
   padding: 0 14px 14px;
+  flex-shrink: 0;
 }
 .orb-footer-btn {
   flex: 1;
@@ -330,7 +397,7 @@ html, body {
 }
 .orb-footer-btn:hover { background: var(--glass-hi); color: var(--text); }
 
-/* ═══ Scrollbar ════════════════════════════════════════════════ */
+/* ── Scrollbar ────────────────────────────────────────────────── */
 ::-webkit-scrollbar { width: 4px; }
 ::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 2px; }

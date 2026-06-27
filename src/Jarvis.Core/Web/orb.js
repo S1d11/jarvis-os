@@ -1,35 +1,95 @@
 // ═══════════════════════════════════════════════════════════════
-// Jarvis Orb — Siri-like floating overlay logic
+// Jarvis Orb — Floating assistant logic
+//
+// Compact:  just the orb, floats anywhere, draggable
+// Expanded: orb header + chat panel
+//
+// Click the orb to expand. Drag the orb to move it. Escape to collapse.
 // ═══════════════════════════════════════════════════════════════
 
 const Orb = {
   _states: ['idle', 'listening', 'thinking', 'responding'],
   _ready: false,
   _pendingSummon: false,
+  _isExpanded: false,
+  _isDragging: false,
+  _dragStarted: false,
+  _mouseDownPos: null,
 
   init() {
-    const overlay = document.getElementById('orb-overlay');
+    const compact = document.getElementById('orb-compact');
+    const expanded = document.getElementById('orb-expanded');
 
-    // Button handlers
-    document.getElementById('orb-send').onclick = () => this.send();
-    document.getElementById('orb-dismiss').onclick = () => this._post({ action: 'orb.dismiss' });
+    // ── Compact orb: click to expand, drag to move ──────────────
+    compact.addEventListener('mousedown', (e) => {
+      this._mouseDownPos = { x: e.screenX, y: e.screenY };
+      this._dragStarted = false;
+      // Tell C# to start drag mode (WM_NCHITTEST → HTCAPTION)
+      this._post({ action: 'orb.dragStart' });
+    });
+
+    compact.addEventListener('mouseup', (e) => {
+      this._post({ action: 'orb.dragEnd' });
+      // If the mouse didn't move much, treat as click → expand
+      if (this._mouseDownPos && !this._dragStarted) {
+        const dx = Math.abs(e.screenX - this._mouseDownPos.x);
+        const dy = Math.abs(e.screenY - this._mouseDownPos.y);
+        if (dx < 5 && dy < 5) {
+          this.expand();
+        }
+      }
+      this._mouseDownPos = null;
+    });
+
+    // Track mouse movement during drag
+    compact.addEventListener('mousemove', (e) => {
+      if (this._mouseDownPos) {
+        const dx = Math.abs(e.screenX - this._mouseDownPos.x);
+        const dy = Math.abs(e.screenY - this._mouseDownPos.y);
+        if (dx > 5 || dy > 5) {
+          this._dragStarted = true;
+        }
+      }
+    });
+
+    // ── Expanded header: drag to move the whole window ──────────
+    const header = document.getElementById('orb-header');
+    header.addEventListener('mousedown', (e) => {
+      // Don't drag when clicking the close button
+      if (e.target.closest('#orb-close')) return;
+      this._mouseDownPos = { x: e.screenX, y: e.screenY };
+      this._post({ action: 'orb.dragStart' });
+    });
+    header.addEventListener('mouseup', () => {
+      this._post({ action: 'orb.dragEnd' });
+      this._mouseDownPos = null;
+    });
+
+    // ── Close button (collapse) ─────────────────────────────────
+    document.getElementById('orb-close').onclick = () => this.collapse();
+
+    // ── Footer buttons ──────────────────────────────────────────
     document.getElementById('orb-full').onclick = () => this._post({ action: 'orb.openFull' });
+    document.getElementById('orb-dismiss').onclick = () => this.dismiss();
 
-    // Input
+    // ── Input ───────────────────────────────────────────────────
     const input = document.getElementById('orb-input');
     input.addEventListener('keydown', (e) => {
       if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); this.send(); }
-      if (e.key === 'Escape') { this._post({ action: 'orb.dismiss' }); }
+      if (e.key === 'Escape') { this.collapse(); }
     });
     input.addEventListener('input', () => {
       input.style.height = 'auto';
       input.style.height = Math.min(input.scrollHeight, 80) + 'px';
     });
 
-    // Welcome message
+    // ── Send button ─────────────────────────────────────────────
+    document.getElementById('orb-send').onclick = () => this.send();
+
+    // ── Welcome message ─────────────────────────────────────────
     this._addMessage('jarvis', "Hi, I'm Jarvis. How can I help?");
 
-    // Mark ready and process any queued summon
+    // ── Mark ready ──────────────────────────────────────────────
     this._ready = true;
     this._post({ action: 'orb.ready' });
     if (this._pendingSummon) {
@@ -38,44 +98,79 @@ const Orb = {
     }
   },
 
-  // ── Summon / Dismiss animations ─────────────────────────────
+  // ── Summon / Dismiss ───────────────────────────────────────
   summon() {
-    if (!this._ready) {
-      this._pendingSummon = true;
-      return;
-    }
-    const overlay = document.getElementById('orb-overlay');
-    overlay.classList.remove('dismissing');
-    overlay.classList.add('summoned');
+    if (!this._ready) { this._pendingSummon = true; return; }
+    const compact = document.getElementById('orb-compact');
+    compact.classList.remove('dismissing');
+    compact.classList.add('summoned');
     this.setState('listening');
-    setTimeout(() => {
-      document.getElementById('orb-input').focus();
-    }, 600);
   },
 
   dismiss() {
-    const overlay = document.getElementById('orb-overlay');
-    overlay.classList.remove('summoned');
-    overlay.classList.add('dismissing');
+    if (this._isExpanded) { this.collapse(); return; }
+    const compact = document.getElementById('orb-compact');
+    compact.classList.add('dismissing');
+    compact.classList.remove('summoned');
+    setTimeout(() => {
+      this._post({ action: 'orb.dismiss' });
+    }, 300);
   },
 
-  // ── Orb state ───────────────────────────────────────────────
-  setState(state) {
-    const overlay = document.getElementById('orb-overlay');
-    for (const s of this._states) overlay.classList.remove(s);
-    if (state !== 'idle') overlay.classList.add(state);
+  // ── Expand / Collapse ──────────────────────────────────────
+  expand() {
+    if (this._isExpanded) return;
+    this._isExpanded = true;
+    const compact = document.getElementById('orb-compact');
+    const expanded = document.getElementById('orb-expanded');
 
+    compact.classList.add('hidden');
+    expanded.classList.add('active');
+    // Force reflow then animate
+    expanded.offsetHeight;
+    expanded.classList.add('visible');
+
+    this._post({ action: 'orb.expand' });
+    this.setState('listening');
+
+    setTimeout(() => {
+      document.getElementById('orb-input').focus();
+    }, 300);
+  },
+
+  collapse() {
+    if (!this._isExpanded) return;
+    this._isExpanded = false;
+    const compact = document.getElementById('orb-compact');
+    const expanded = document.getElementById('orb-expanded');
+
+    expanded.classList.remove('visible');
+    setTimeout(() => {
+      expanded.classList.remove('active');
+      compact.classList.remove('hidden');
+    }, 250);
+
+    this._post({ action: 'orb.collapse' });
+  },
+
+  // ── State ──────────────────────────────────────────────────
+  setState(state) {
+    const compact = document.getElementById('orb-compact');
     const label = document.getElementById('orb-state-label');
-    label.textContent = {
+    this._states.forEach(s => compact.classList.remove(s));
+    if (this._states.includes(state)) compact.classList.add(state);
+
+    const labels = {
       idle: '',
       listening: 'Listening…',
       thinking: 'Thinking…',
       responding: 'Responding…',
-    }[state] || '';
+    };
+    if (label) label.textContent = labels[state] || '';
   },
 
-  // ── Chat ────────────────────────────────────────────────────
-  async send() {
+  // ── Send message ───────────────────────────────────────────
+  send() {
     const input = document.getElementById('orb-input');
     const text = input.value.trim();
     if (!text) return;
@@ -84,116 +179,82 @@ const Orb = {
     input.value = '';
     input.style.height = 'auto';
 
+    this._addTyping();
     this.setState('thinking');
-    const typing = this._addTyping();
 
-    try {
-      const response = await this._getAIResponse(text);
-      typing.remove();
-      this.setState('responding');
-      this._addMessage('jarvis', response);
-
-      // Return to listening after a short delay
-      setTimeout(() => this.setState('listening'), 1500);
-    } catch (err) {
-      typing.remove();
-      this._addMessage('jarvis', `Error: ${err.message}`);
-      this.setState('listening');
-    }
+    this._post({ action: 'chat.send', message: text });
   },
 
-  async _getAIResponse(text) {
-    const lower = text.toLowerCase();
-
-    if (lower.startsWith('run ') || lower.startsWith('ps ')) {
-      const cmd = text.substring(text.indexOf(' ') + 1);
-      const result = await this._call('sys.powershell', { command: cmd });
-      let out = result.stdout || '';
-      if (result.stderr) out += (out ? '\n' : '') + result.stderr;
-      return `Exit: ${result.exitCode}\n\n\`\`\`\n${out.trim() || '(no output)'}\n\`\`\``;
-    }
-    if (lower.startsWith('cmd ')) {
-      const cmd = text.substring(4);
-      const result = await this._call('sys.cmd', { command: cmd });
-      let out = result.stdout || '';
-      if (result.stderr) out += (out ? '\n' : '') + result.stderr;
-      return `Exit: ${result.exitCode}\n\n\`\`\`\n${out.trim() || '(no output)'}\n\`\`\``;
-    }
-
-    // Quick responses for common requests
-    if (lower.match(/open|launch|start/)) {
-      const app = text.replace(/.*?(open|launch|start)\s*/i, '').trim();
-      if (app) {
-        await this._call('shell.launchApp', { name: app });
-        return `Opening ${app}…`;
-      }
-    }
-    if (lower.match(/lock/)) { await this._call('shell.lockScreen'); return 'Locking your screen.'; }
-    if (lower.match(/shut.?down/)) { await this._call('shell.shutdown'); return 'Shutting down.'; }
-    if (lower.match(/restart|reboot/)) { await this._call('shell.restart'); return 'Restarting.'; }
-    if (lower.match(/sleep/)) { await this._call('shell.sleep'); return 'Going to sleep.'; }
-
-    return `You said: "${text}". AI backend not yet connected.`;
-  },
-
+  // ── Message helpers ────────────────────────────────────────
   _addMessage(role, text) {
     const feed = document.getElementById('orb-chat-feed');
-    const el = document.createElement('div');
-    el.className = `msg ${role}`;
-    el.textContent = text;
-    feed.appendChild(el);
+    const div = document.createElement('div');
+    div.className = `msg ${role}`;
+    div.textContent = text;
+    feed.appendChild(div);
     feed.scrollTop = feed.scrollHeight;
-    return el;
+    return div;
   },
 
   _addTyping() {
     const feed = document.getElementById('orb-chat-feed');
-    const el = document.createElement('div');
-    el.className = 'msg jarvis';
-    el.innerHTML = '<div class="typing-dots"><span></span><span></span><span></span></div>';
-    feed.appendChild(el);
+    const div = document.createElement('div');
+    div.className = 'msg jarvis typing-indicator';
+    div.innerHTML = '<div class="typing-dots"><span></span><span></span><span></span></div>';
+    feed.appendChild(div);
     feed.scrollTop = feed.scrollHeight;
-    return el;
+    return div;
   },
 
-  // ── Bridge ──────────────────────────────────────────────────
-  _pending: new Map(),
-
-  async _call(action, payload = {}) {
-    const id = `orb_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`;
-    return new Promise((resolve, reject) => {
-      this._pending.set(id, { resolve, reject });
-      this._post({ id, action, ...payload });
-      setTimeout(() => {
-        if (this._pending.has(id)) {
-          this._pending.get(id).reject(new Error('Timeout'));
-          this._pending.delete(id);
-        }
-      }, 30000);
-    });
-  },
-
+  // ── Bridge ─────────────────────────────────────────────────
   _post(msg) {
-    window.chrome.webview.postMessage(JSON.stringify(msg));
+    try { window.chrome.webview.postMessage(JSON.stringify(msg)); }
+    catch (e) { console.warn('bridge not ready', e); }
   },
 
-  _receive(json) {
-    const msg = JSON.parse(json);
-    if (msg.id && this._pending.has(msg.id)) {
-      const { resolve, reject } = this._pending.get(msg.id);
-      this._pending.delete(msg.id);
-      msg.ok ? resolve(msg.data) : reject(new Error(msg.error));
-    } else if (msg.event) {
-      switch (msg.event) {
-        case 'summon': this.summon(); break;
-        case 'dismiss': this.dismiss(); break;
-        case 'state': this.setState(msg.state); break;
-      }
+  // ── Incoming events from C# ────────────────────────────────
+  onEvent(event, data) {
+    switch (event) {
+      case 'summon':
+        this.summon();
+        break;
+      case 'dismiss':
+        this.dismiss();
+        break;
+      case 'expanded':
+        // C# confirmed the window resized
+        break;
+      case 'collapsed':
+        // C# confirmed the window resized
+        break;
+      case 'state':
+        if (data && data.state) this.setState(data.state);
+        break;
+      case 'chat.response':
+        // Remove typing indicator
+        const typing = document.querySelector('.typing-indicator');
+        if (typing) typing.remove();
+        this._addMessage('jarvis', data?.text || data?.message || '');
+        this.setState('responding');
+        setTimeout(() => this.setState('listening'), 1500);
+        break;
+      case 'chat.error':
+        const t = document.querySelector('.typing-indicator');
+        if (t) t.remove();
+        this._addMessage('jarvis', `Error: ${data?.message || 'something went wrong'}`);
+        this.setState('idle');
+        break;
     }
   },
 };
 
-window.Orb = Orb;
-window.Bridge = { _receive: (json) => Orb._receive(json) };
-
+// ── Boot ──────────────────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', () => Orb.init());
+
+// ── Receive messages from C# ──────────────────────────────────
+window.chrome?.webview?.addEventListener('message', (e) => {
+  try {
+    const msg = JSON.parse(e.data);
+    if (msg.event) Orb.onEvent(msg.event, msg);
+  } catch (err) { console.warn('parse error', err); }
+});

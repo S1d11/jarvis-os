@@ -2,32 +2,53 @@
 
 Jarvis is not an application. It's a system-level AI assistant woven directly into Windows — invisible until you call it.
 
-Press **Win+J** or say **"Hey Jarvis"** and the orb appears over whatever you're doing. Ask it anything. It fades away when done. No window, no tray icon, no Alt+Tab entry, no Start Menu shortcut. It's just there, like a part of the OS.
+Press **Win+J** or say **"Hey Jarvis"** and a floating orb appears over whatever you're doing. Drag it anywhere on screen — it stays where you put it. Click it to expand into a chat panel. Press Escape to collapse it back to just the orb. No window, no tray icon, no Alt+Tab entry, no Start Menu shortcut. It's just there, like a part of the OS.
 
 ## How It Works
 
 ```
 Windows boots
-  └── Scheduled task launches Jarvis.exe --orb (hidden, no window)
+  └── Scheduled task launches Jarvis.exe (hidden, no window)
         ├── LowLevelKeyboardHook (WH_KEYBOARD_LL) — listens for Win+J
         ├── WakeWordService (NAudio) — listens for "Hey Jarvis"
-        └── OrbWindow (hidden, transparent, topmost overlay)
+        └── NativeOrbWindow (raw Win32 HWND, hidden)
               └── Waiting…
 
 User presses Win+J (or says "Hey Jarvis")
-  └── OrbWindow.Summon()
-        ├── Win32 overlay appears (invisible to Alt+Tab, DWM, window enumeration)
-        ├── Orb animates in (scale + glow)
-        ├── Chat panel slides up
+  └── NativeOrbWindow.Summon()
+        ├── Win32 overlay appears at its saved position (invisible to Alt+Tab)
+        ├── Orb animates in (compact mode — just the floating orb, 80x80)
         └── State: "Listening…"
+
+User clicks the orb
+  └── NativeOrbWindow.Expand()
+        ├── Window resizes from 80x80 to 440x600
+        ├── Chat panel appears (glassmorphism, blur, dark theme)
+        └── Input field auto-focuses
+
+User drags the orb
+  └── WM_NCHITTEST returns HTCAPTION → Win32 native drag
+        └── Position saved to orb_position.json on release
 
 User types a request
   └── Bridge → ShellService / SystemControlService / ProcessService
         ├── Launch apps, run PowerShell, manage windows, control power
         └── Return result to orb UI
 
-User presses Escape (or clicks "Dismiss")
-  └── OrbWindow.Dismiss()
+User presses Escape
+  └── Collapse back to compact orb (or dismiss if already compact)
+```
+
+## The Floating Orb
+
+The orb is a **floating assistant** — it can be anywhere on screen:
+
+- **Compact mode**: Just the orb (80x80), floats anywhere, always on top
+- **Expanded mode**: Orb header + chat panel (440x600), glassmorphism dark theme
+- **Draggable**: Grab the orb (or the header in expanded mode) and drag it anywhere
+- **Position memory**: The orb remembers where you put it between sessions
+- **Click to expand**: Click the orb to open the chat panel
+- **Escape to collapse**: Press Escape to go back to just the floating orb
         ├── Orb fades out + shrinks
         └── Window hides — Jarvis goes back to sleep
 ```
