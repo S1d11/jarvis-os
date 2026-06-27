@@ -1,0 +1,50 @@
+Siri-style fullscreen — conversation-first, minimal chrome
+
+Redesigned the fullscreen mode to match the Siri iOS conversation
+style. The UI is now content-first with almost no chrome.
+
+Changes:
+- orb.html: stripped the heavy top bar (orb + title + state + back).
+  Added a minimal close button (top-right, 32px, subtle). The
+  conversation is now the only content. Bottom input is a single
+  dark rounded pill: [sparkle] "Ask Jarvis…" [mic].
+
+- orb.css: complete redesign for Siri aesthetic
+  - Background: near-black rgba(8,8,12,0.95) with blur(60px)
+  - Ambient orb glow behind conversation (subtle, drifting)
+  - User messages: dark pill bubbles (.msg-user), centered,
+    rounded-xl, soft border
+  - Jarvis messages: plain text (.msg-jarvis), no bubble,
+    17px font, 1.65 line-height
+  - Input pill: dark rounded bar, max-width 640px, centered
+    at bottom. Icons are 36px circles inside the pill.
+  - Close button: absolute top-right, transparent until hover
+  - Removed all old topbar, chat-feed, input-bar styles
+
+- orb.js: updated for new selectors
+  - #fs-conversation (not #fs-chat-feed)
+  - .msg-user / .msg-jarvis (not .msg.user / .msg.jarvis)
+  - input type="text" (not textarea)
+  - No send button — Enter to send
+  - Removed state label references
+
+Layout:
+  ┌──────────────────────────────────────────┐
+  │                                    [x]   │  ← subtle close
+  │                                          │
+  │         ┌────────────────────┐         │
+  │         │ Where is Apple HQ? │         │  ← user pill
+  │         └────────────────────┘         │
+  │                                          │
+  │  Apple Park, also known as...            │  ← Jarvis plain text
+  │                                          │
+  │  [image]                                 │
+  │                                          │
+  │     [◆]  Ask Jarvis…          [mic]    │  ← input pill
+  └──────────────────────────────────────────┘
+
+Build: 0 warnings, 0 errors
+
+Generated with [Devin](https://devin.ai)
+
+Co-Authored-By: Devin <158243242+devin-ai-integration[bot]@users.noreply.github.com>

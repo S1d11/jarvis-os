@@ -1,8 +1,8 @@
 // ═══════════════════════════════════════════════════════════════
-// Jarvis Orb — Floating orb + Fullscreen chatbot
+// Jarvis Orb — Floating orb + Siri-style fullscreen conversation
 //
 // Compact:  80x80 floating orb, draggable, click to go fullscreen
-// Fullscreen: Full Jarvis chatbot with text + voice input
+// Fullscreen: Siri-style conversation, minimal chrome
 // ═══════════════════════════════════════════════════════════════
 
 const Orb = {
@@ -10,7 +10,7 @@ const Orb = {
   _ready: false,
   _pendingSummon: false,
   _isFullscreen: false,
-  _inputMode: 'text',     // 'text' or 'voice'
+  _inputMode: 'text',
   _mouseDownPos: null,
   _dragStarted: false,
 
@@ -45,26 +45,20 @@ const Orb = {
     // ── Fullscreen: close button ────────────────────────────────
     document.getElementById('fs-close').onclick = () => this.collapse();
 
-    // ── Fullscreen: text input ──────────────────────────────────
+    // ── Fullscreen: text input (Enter to send) ──────────────────
     const input = document.getElementById('fs-input');
     input.addEventListener('keydown', (e) => {
-      if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); this.send(); }
+      if (e.key === 'Enter') { e.preventDefault(); this.send(); }
       if (e.key === 'Escape') { this.collapse(); }
     });
-    input.addEventListener('input', () => {
-      input.style.height = 'auto';
-      input.style.height = Math.min(input.scrollHeight, 120) + 'px';
-    });
 
-    document.getElementById('fs-send').onclick = () => this.send();
-
-    // ── Mode toggle: single icon inside the input bar ───────────
+    // ── Mode toggle: mic/keyboard icon inside input pill ─────────
     document.getElementById('fs-mode-icon').onclick = () => {
       this.setMode(this._inputMode === 'text' ? 'voice' : 'text');
     };
 
     // ── Welcome message ─────────────────────────────────────────
-    this._addMessage('jarvis', "Hi, I'm Jarvis. How can I help?");
+    this._addJarvisMessage("Hi, I'm Jarvis. How can I help?");
 
     // ── Ready ───────────────────────────────────────────────────
     this._ready = true;
@@ -101,7 +95,7 @@ const Orb = {
 
     compact.classList.add('hidden');
     fs.classList.add('active');
-    fs.offsetHeight; // force reflow
+    fs.offsetHeight;
     fs.classList.add('visible');
 
     this._post({ action: 'orb.expand' });
@@ -136,29 +130,22 @@ const Orb = {
     const iconMic = document.getElementById('icon-mic');
     const iconKeyboard = document.getElementById('icon-keyboard');
     const input = document.getElementById('fs-input');
-    const sendBtn = document.getElementById('fs-send');
 
     if (mode === 'voice') {
-      // Show keyboard icon (click to switch back to text)
       iconMic.style.display = 'none';
       iconKeyboard.style.display = 'flex';
       modeIcon.classList.add('voice-active');
       modeIcon.title = 'Switch to text';
       input.placeholder = 'Listening — speak to Jarvis…';
       input.disabled = true;
-      sendBtn.style.opacity = '0.3';
-      sendBtn.style.pointerEvents = 'none';
       this._post({ action: 'voice.start' });
     } else {
-      // Show mic icon (click to switch to voice)
       iconMic.style.display = 'flex';
       iconKeyboard.style.display = 'none';
       modeIcon.classList.remove('voice-active');
       modeIcon.title = 'Switch to voice';
-      input.placeholder = 'Type to Jarvis…';
+      input.placeholder = 'Ask Jarvis…';
       input.disabled = false;
-      sendBtn.style.opacity = '1';
-      sendBtn.style.pointerEvents = 'auto';
       input.focus();
       this._post({ action: 'voice.stop' });
     }
@@ -167,14 +154,8 @@ const Orb = {
   // ── State ──────────────────────────────────────────────────
   setState(state) {
     const compact = document.getElementById('orb-compact');
-    const label = document.getElementById('fs-state-label');
     this._states.forEach(s => compact.classList.remove(s));
     if (this._states.includes(state)) compact.classList.add(state);
-
-    const labels = {
-      idle: '', listening: 'Listening…', thinking: 'Thinking…', responding: 'Responding…',
-    };
-    if (label) label.textContent = labels[state] || '';
   },
 
   // ── Send message ───────────────────────────────────────────
@@ -183,9 +164,8 @@ const Orb = {
     const text = input.value.trim();
     if (!text) return;
 
-    this._addMessage('user', text);
+    this._addUserMessage(text);
     input.value = '';
-    input.style.height = 'auto';
 
     this._addTyping();
     this.setState('thinking');
@@ -193,10 +173,20 @@ const Orb = {
   },
 
   // ── Message helpers ────────────────────────────────────────
-  _addMessage(role, text) {
-    const feed = document.getElementById('fs-chat-feed');
+  _addUserMessage(text) {
+    const feed = document.getElementById('fs-conversation');
     const div = document.createElement('div');
-    div.className = `msg ${role}`;
+    div.className = 'msg-user';
+    div.textContent = text;
+    feed.appendChild(div);
+    feed.scrollTop = feed.scrollHeight;
+    return div;
+  },
+
+  _addJarvisMessage(text) {
+    const feed = document.getElementById('fs-conversation');
+    const div = document.createElement('div');
+    div.className = 'msg-jarvis';
     div.textContent = text;
     feed.appendChild(div);
     feed.scrollTop = feed.scrollHeight;
@@ -204,9 +194,9 @@ const Orb = {
   },
 
   _addTyping() {
-    const feed = document.getElementById('fs-chat-feed');
+    const feed = document.getElementById('fs-conversation');
     const div = document.createElement('div');
-    div.className = 'msg jarvis typing-indicator';
+    div.className = 'typing-indicator';
     div.innerHTML = '<div class="typing-dots"><span></span><span></span><span></span></div>';
     feed.appendChild(div);
     feed.scrollTop = feed.scrollHeight;
@@ -224,22 +214,22 @@ const Orb = {
     switch (event) {
       case 'summon': this.summon(); break;
       case 'dismiss': this.dismiss(); break;
-      case 'expanded': break;  // C# confirmed fullscreen resize
-      case 'collapsed': break; // C# confirmed compact resize
+      case 'expanded': break;
+      case 'collapsed': break;
       case 'state':
         if (data && data.state) this.setState(data.state);
         break;
       case 'chat.response':
         const typing = document.querySelector('.typing-indicator');
         if (typing) typing.remove();
-        this._addMessage('jarvis', data?.text || data?.message || '');
+        this._addJarvisMessage(data?.text || data?.message || '');
         this.setState('responding');
         setTimeout(() => this.setState('listening'), 1500);
         break;
       case 'chat.error':
         const t = document.querySelector('.typing-indicator');
         if (t) t.remove();
-        this._addMessage('jarvis', `Error: ${data?.message || 'something went wrong'}`);
+        this._addJarvisMessage(`Error: ${data?.message || 'something went wrong'}`);
         this.setState('idle');
         break;
     }

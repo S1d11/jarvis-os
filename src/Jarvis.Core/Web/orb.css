@@ -1,41 +1,41 @@
 /* ═══════════════════════════════════════════════════════════════
-   Jarvis — Floating orb + Fullscreen chatbot
+   Jarvis — Floating orb + Siri-style fullscreen conversation
    Compact: 80x80 floating orb, draggable, click to go fullscreen
-   Fullscreen: full Jarvis chatbot with text + voice input
+   Fullscreen: Siri-style conversation, minimal chrome
    ═══════════════════════════════════════════════════════════════ */
 
 :root {
-  --surface-1:    rgba(16, 16, 24, 0.92);
-  --surface-2:    rgba(28, 28, 40, 0.86);
-  --surface-3:    rgba(40, 40, 56, 0.80);
-  --glass-border: rgba(255, 255, 255, 0.08);
-  --glass-hi:     rgba(255, 255, 255, 0.05);
-  --text:         #ECECF1;
-  --text-2:       #B4B4C2;
-  --text-dim:     #6E6E80;
+  --bg:           rgba(8, 8, 12, 0.95);
+  --surface:      rgba(28, 28, 36, 0.85);
+  --surface-hi:   rgba(45, 45, 55, 0.90);
+  --pill:         rgba(35, 35, 48, 0.90);
+  --pill-border:  rgba(255, 255, 255, 0.06);
+  --glass-border: rgba(255, 255, 255, 0.06);
+  --text:         #F0F0F5;
+  --text-2:       #A0A0B0;
+  --text-dim:     #666680;
   --accent:       #6C7CFF;
   --accent-2:     #9B7CFF;
-  --accent-glow:  rgba(108, 124, 255, 0.4);
-  --accent-soft:  rgba(108, 124, 255, 0.12);
-  --r-md:  12px;
-  --r-lg:  16px;
-  --r-xl:  20px;
-  --r-2xl: 28px;
+  --accent-glow:  rgba(108, 124, 255, 0.35);
+  --accent-soft:  rgba(108, 124, 255, 0.10);
+  --r-sm:  10px;
+  --r-md:  14px;
+  --r-lg:  20px;
+  --r-xl:  28px;
   --ease:       cubic-bezier(0.22, 1, 0.36, 1);
   --ease-out:   cubic-bezier(0.16, 1, 0.3, 1);
   --ease-snap:  cubic-bezier(0.34, 1.56, 0.64, 1);
-  --font:        'Segoe UI', system-ui, sans-serif;
+  --font:        -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
 }
 
 *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
 
 html, body {
-  width: 100%;
-  height: 100%;
+  width: 100%; height: 100%;
   background: transparent;
   color: var(--text);
   font-family: var(--font);
-  font-size: 14px;
+  font-size: 15px;
   -webkit-font-smoothing: antialiased;
   user-select: none;
   -webkit-user-select: none;
@@ -47,26 +47,17 @@ html, body {
    ═══════════════════════════════════════════════════════════════ */
 
 #orb-compact {
-  width: 80px;
-  height: 80px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: grab;
-  position: relative;
+  width: 80px; height: 80px;
+  display: flex; align-items: center; justify-content: center;
+  cursor: grab; position: relative;
 }
 #orb-compact:active { cursor: grabbing; }
 #orb-compact.hidden { display: none; }
 
 #orb-stage {
-  position: relative;
-  width: 64px;
-  height: 64px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transform: scale(0);
-  opacity: 0;
+  position: relative; width: 64px; height: 64px;
+  display: flex; align-items: center; justify-content: center;
+  transform: scale(0); opacity: 0;
   transition: transform 0.5s var(--ease-snap), opacity 0.3s var(--ease-out);
 }
 #orb-compact.summoned #orb-stage { transform: scale(1); opacity: 1; }
@@ -132,151 +123,107 @@ html, body {
 #orb-compact:hover #orb-stage { transform: scale(1.08); }
 
 /* ═══════════════════════════════════════════════════════════════
-   FULLSCREEN MODE — Jarvis chatbot
+   FULLSCREEN MODE — Siri-style conversation
    ═══════════════════════════════════════════════════════════════ */
 
 #jarvis-fullscreen {
-  display: none;
-  flex-direction: column;
-  width: 100%;
-  height: 100%;
-  background: var(--surface-1);
-  -webkit-backdrop-filter: blur(40px) saturate(1.5);
-  backdrop-filter: blur(40px) saturate(1.5);
+  display: none; flex-direction: column;
+  width: 100%; height: 100%;
+  background: var(--bg);
+  -webkit-backdrop-filter: blur(60px) saturate(1.3);
+  backdrop-filter: blur(60px) saturate(1.3);
   opacity: 0;
-  transition: opacity 0.3s var(--ease-out);
+  transition: opacity 0.35s var(--ease-out);
   position: relative;
   overflow: hidden;
 }
 #jarvis-fullscreen.active { display: flex; }
 #jarvis-fullscreen.visible { opacity: 1; }
 
-/* Ambient orb glow in background */
-#fs-ambient {
+/* Subtle ambient glow behind conversation */
+#jarvis-fullscreen::before {
+  content: '';
   position: absolute;
   top: 50%; left: 50%;
-  width: 600px; height: 600px;
+  width: 500px; height: 500px;
   transform: translate(-50%, -50%);
   border-radius: 50%;
-  background: radial-gradient(circle, var(--accent-soft) 0%, transparent 70%);
+  background: radial-gradient(circle, var(--accent-soft) 0%, transparent 65%);
   pointer-events: none;
-  opacity: 0.5;
-  animation: ambient-pulse 6s var(--ease) infinite;
+  opacity: 0.4;
+  animation: ambient-drift 8s var(--ease) infinite;
 }
-@keyframes ambient-pulse {
-  0%, 100% { opacity: 0.3; transform: translate(-50%, -50%) scale(1); }
-  50% { opacity: 0.5; transform: translate(-50%, -50%) scale(1.1); }
-}
-
-/* ── Top bar ──────────────────────────────────────────────────── */
-#fs-topbar {
-  display: flex;
-  align-items: center;
-  gap: 14px;
-  padding: 20px 28px;
-  flex-shrink: 0;
-  position: relative;
-  z-index: 2;
+@keyframes ambient-drift {
+  0%, 100% { transform: translate(-50%, -50%) scale(1); opacity: 0.3; }
+  50% { transform: translate(-50%, -52%) scale(1.08); opacity: 0.5; }
 }
 
-#fs-orb-wrap {
-  width: 48px; height: 48px;
-  display: flex; align-items: center; justify-content: center;
-  flex-shrink: 0;
-}
-
-#orb-stage-fs {
-  position: relative; width: 40px; height: 40px;
-  display: flex; align-items: center; justify-content: center;
-}
-#orb-glow-fs {
-  position: absolute; inset: -12px; border-radius: 50%;
-  background: radial-gradient(circle, var(--accent-glow) 0%, transparent 60%);
-  animation: glow-pulse 3s var(--ease) infinite;
-}
-#orb-outer-ring-fs {
-  position: absolute; inset: 0; border-radius: 50%;
-  background: conic-gradient(from 0deg, var(--accent), var(--accent-2), var(--accent));
-  animation: orb-rotate 6s linear infinite;
-  mask: radial-gradient(circle, transparent 50%, black 52%, black 56%, transparent 58%);
-  -webkit-mask: radial-gradient(circle, transparent 50%, black 52%, black 56%, transparent 58%);
-}
-#orb-mid-ring-fs {
-  position: absolute; inset: 6px; border-radius: 50%;
-  background: conic-gradient(from 180deg, var(--accent-2), transparent, var(--accent), transparent);
-  animation: orb-rotate-rev 4s linear infinite;
-  mask: radial-gradient(circle, transparent 46%, black 48%, black 50%, transparent 52%);
-  -webkit-mask: radial-gradient(circle, transparent 46%, black 48%, black 50%, transparent 52%);
-}
-#orb-core-fs {
-  width: 18px; height: 18px; border-radius: 50%;
-  background: radial-gradient(circle at 35% 35%, var(--accent) 0%, var(--accent-2) 70%);
-  box-shadow: 0 0 16px var(--accent-glow);
-}
-
-#fs-title {
-  font-size: 22px; font-weight: 600; color: var(--text);
-  letter-spacing: 0.3px;
-}
-
-#fs-state-label {
-  font-size: 14px; color: var(--text-dim);
-  margin-left: auto;
-}
-
+/* Close button — top right, very subtle */
 #fs-close {
-  width: 40px; height: 40px; border-radius: var(--r-md);
-  border: 1px solid var(--glass-border); background: var(--surface-2);
-  color: var(--text-2); cursor: pointer;
+  position: absolute;
+  top: 16px; right: 20px;
+  width: 32px; height: 32px;
+  border-radius: 50%;
+  border: none;
+  background: transparent;
+  color: var(--text-dim);
+  cursor: pointer;
   display: flex; align-items: center; justify-content: center;
-  flex-shrink: 0; transition: all 0.15s var(--ease);
+  z-index: 10;
+  transition: all 0.2s var(--ease);
+  opacity: 0.5;
 }
-#fs-close:hover { background: var(--glass-hi); color: var(--text); border-color: var(--accent); }
+#fs-close:hover { opacity: 1; background: var(--pill); color: var(--text-2); }
 
-/* ── Chat feed ────────────────────────────────────────────────── */
-#fs-chat-feed {
+/* ── Conversation feed ───────────────────────────────────────── */
+#fs-conversation {
   flex: 1;
   overflow-y: auto;
-  padding: 20px 28px;
+  padding: 56px 24px 24px;
   display: flex;
   flex-direction: column;
-  gap: 16px;
-  max-width: 800px;
+  gap: 20px;
+  max-width: 720px;
   margin: 0 auto;
   width: 100%;
-  min-height: 0;
   position: relative;
   z-index: 1;
 }
 
-.msg {
-  max-width: 80%;
-  padding: 14px 18px;
+/* User query — dark pill bubble, centered */
+.msg-user {
+  align-self: center;
+  background: var(--pill);
+  border: 1px solid var(--pill-border);
   border-radius: var(--r-xl);
-  font-size: 15px;
-  line-height: 1.6;
-  word-wrap: break-word;
-  animation: msg-in 0.3s var(--ease-out) both;
-}
-@keyframes msg-in {
-  from { opacity: 0; transform: translateY(10px); }
-  to   { opacity: 1; transform: translateY(0); }
-}
-.msg.user {
-  align-self: flex-end;
-  background: linear-gradient(135deg, var(--accent), var(--accent-2));
-  color: white;
-  border-bottom-right-radius: 6px;
-  box-shadow: 0 4px 16px var(--accent-glow);
-}
-.msg.jarvis {
-  align-self: flex-start;
-  background: var(--surface-2);
-  border: 1px solid var(--glass-border);
-  border-bottom-left-radius: 6px;
+  padding: 14px 22px;
+  font-size: 16px;
+  font-weight: 500;
+  color: var(--text);
+  line-height: 1.5;
+  max-width: 85%;
+  text-align: center;
+  animation: msg-in 0.35s var(--ease-out) both;
 }
 
-.typing-dots { display: flex; gap: 5px; padding: 4px 0; }
+/* Jarvis response — plain text, no bubble */
+.msg-jarvis {
+  align-self: flex-start;
+  font-size: 17px;
+  font-weight: 400;
+  color: var(--text);
+  line-height: 1.65;
+  max-width: 90%;
+  padding: 4px 8px;
+  animation: msg-in 0.35s var(--ease-out) both;
+}
+
+/* Typing indicator */
+.typing-indicator {
+  align-self: flex-start;
+  padding: 8px 4px;
+}
+.typing-dots { display: flex; gap: 5px; }
 .typing-dots span {
   width: 7px; height: 7px; border-radius: 50%;
   background: var(--text-dim);
@@ -289,36 +236,37 @@ html, body {
   30% { transform: translateY(-8px); opacity: 1; }
 }
 
-/* ── Input bar ────────────────────────────────────────────────── */
-#fs-input-bar {
-  flex-shrink: 0;
-  padding: 16px 28px 24px;
-  max-width: 800px;
-  margin: 0 auto;
-  width: 100%;
-  position: relative;
-  z-index: 2;
+@keyframes msg-in {
+  from { opacity: 0; transform: translateY(12px); }
+  to   { opacity: 1; transform: translateY(0); }
 }
 
-#fs-input-wrap {
+/* ── Bottom input pill ───────────────────────────────────────── */
+#fs-input-pill {
+  flex-shrink: 0;
   display: flex;
-  align-items: flex-end;
-  gap: 4px;
-  background: var(--surface-2);
-  border: 1px solid var(--glass-border);
+  align-items: center;
+  gap: 8px;
+  background: var(--pill);
+  border: 1px solid var(--pill-border);
   border-radius: var(--r-xl);
-  padding: 6px 6px 6px 4px;
-  transition: border-color 0.15s var(--ease), box-shadow 0.15s var(--ease);
+  padding: 6px 6px 6px 10px;
+  margin: 0 auto 28px;
+  max-width: 640px;
+  width: calc(100% - 48px);
+  position: relative;
+  z-index: 2;
+  transition: border-color 0.2s var(--ease), box-shadow 0.2s var(--ease);
 }
-#fs-input-wrap:focus-within {
+#fs-input-pill:focus-within {
   border-color: var(--accent);
   box-shadow: 0 0 0 3px var(--accent-soft);
 }
 
-/* Icon buttons inside the input bar */
-.fs-icon-btn {
-  width: 40px; height: 40px;
-  border-radius: var(--r-md);
+/* Icon buttons inside the pill */
+.fs-pill-icon {
+  width: 36px; height: 36px;
+  border-radius: 50%;
   border: none;
   background: transparent;
   color: var(--text-dim);
@@ -327,10 +275,10 @@ html, body {
   flex-shrink: 0;
   transition: all 0.15s var(--ease);
 }
-.fs-icon-btn:hover { background: var(--glass-hi); color: var(--text); }
-.fs-icon-btn:active { transform: scale(0.92); }
+.fs-pill-icon:hover { background: var(--surface-hi); color: var(--text-2); }
+.fs-pill-icon:active { transform: scale(0.92); }
 
-/* Mode toggle icon (left side) — turns accent when voice is active */
+/* Mic icon turns accent when voice is active */
 #fs-mode-icon.voice-active {
   color: var(--accent);
   background: var(--accent-soft);
@@ -340,34 +288,25 @@ html, body {
   color: var(--accent);
 }
 
-/* Send button (right side) */
-#fs-send {
-  background: linear-gradient(135deg, var(--accent), var(--accent-2));
-  color: white;
-  box-shadow: 0 2px 8px var(--accent-glow);
-}
-#fs-send:hover { transform: scale(1.06); box-shadow: 0 4px 16px var(--accent-glow); color: white; }
-
+/* Text input — transparent, no border */
 #fs-input {
   flex: 1;
   background: transparent;
   border: none;
-  padding: 11px 8px;
+  padding: 10px 6px;
   color: var(--text);
   font-family: var(--font);
-  font-size: 15px;
-  resize: none;
+  font-size: 16px;
+  font-weight: 400;
   outline: none;
-  max-height: 120px;
   user-select: text;
   -webkit-user-select: text;
-  line-height: 1.5;
 }
-#fs-input::placeholder { color: #444452; }
+#fs-input::placeholder { color: var(--text-dim); }
 #fs-input:disabled { opacity: 0.4; }
 
 /* ── Scrollbar ────────────────────────────────────────────────── */
-::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar { width: 5px; }
 ::-webkit-scrollbar-track { background: transparent; }
-::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 3px; }
-::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.2); }
+::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.08); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.15); }
