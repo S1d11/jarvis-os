@@ -58,9 +58,10 @@ const Orb = {
 
     document.getElementById('fs-send').onclick = () => this.send();
 
-    // ── Mode toggle: Voice / Type ───────────────────────────────
-    document.getElementById('fs-voice-btn').onclick = () => this.setMode('voice');
-    document.getElementById('fs-text-btn').onclick = () => this.setMode('text');
+    // ── Mode toggle: single icon inside the input bar ───────────
+    document.getElementById('fs-mode-icon').onclick = () => {
+      this.setMode(this._inputMode === 'text' ? 'voice' : 'text');
+    };
 
     // ── Welcome message ─────────────────────────────────────────
     this._addMessage('jarvis', "Hi, I'm Jarvis. How can I help?");
@@ -131,23 +132,29 @@ const Orb = {
   // ── Input mode: text or voice ──────────────────────────────
   setMode(mode) {
     this._inputMode = mode;
-    const voiceBtn = document.getElementById('fs-voice-btn');
-    const textBtn = document.getElementById('fs-text-btn');
+    const modeIcon = document.getElementById('fs-mode-icon');
+    const iconMic = document.getElementById('icon-mic');
+    const iconKeyboard = document.getElementById('icon-keyboard');
     const input = document.getElementById('fs-input');
     const sendBtn = document.getElementById('fs-send');
-    const wrap = document.getElementById('fs-input-wrap');
 
     if (mode === 'voice') {
-      voiceBtn.classList.add('active');
-      textBtn.classList.remove('active');
-      input.placeholder = 'Voice mode — speak to Jarvis…';
+      // Show keyboard icon (click to switch back to text)
+      iconMic.style.display = 'none';
+      iconKeyboard.style.display = 'flex';
+      modeIcon.classList.add('voice-active');
+      modeIcon.title = 'Switch to text';
+      input.placeholder = 'Listening — speak to Jarvis…';
       input.disabled = true;
-      sendBtn.style.opacity = '0.4';
+      sendBtn.style.opacity = '0.3';
       sendBtn.style.pointerEvents = 'none';
       this._post({ action: 'voice.start' });
     } else {
-      textBtn.classList.add('active');
-      voiceBtn.classList.remove('active');
+      // Show mic icon (click to switch to voice)
+      iconMic.style.display = 'flex';
+      iconKeyboard.style.display = 'none';
+      modeIcon.classList.remove('voice-active');
+      modeIcon.title = 'Switch to voice';
       input.placeholder = 'Type to Jarvis…';
       input.disabled = false;
       sendBtn.style.opacity = '1';

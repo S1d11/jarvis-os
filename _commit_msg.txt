@@ -1,0 +1,33 @@
+Embed voice/type toggle into chat bar — no emojis, clean SVG icons
+
+Removed the separate Voice/Type pill buttons below the input bar.
+The mode toggle is now a single icon embedded inside the chat bar,
+on the left side — same row as the text input and send button.
+
+Changes:
+- orb.html: replaced #fs-mode-toggle with a single #fs-mode-icon button
+  inside #fs-input-wrap. Contains two SVGs (mic + keyboard) that
+  toggle visibility. No text labels, no emojis.
+
+- orb.css: removed .fs-mode-btn and #fs-mode-toggle styles.
+  New .fs-icon-btn class for inline icon buttons (40x40, transparent
+  background, hover highlight). #fs-mode-icon.voice-active turns
+  accent color when voice is on. Send button uses gradient + glow.
+  Input bar is now a single row: [mode icon] [textarea] [send].
+
+- orb.js: setMode() now toggles icon visibility (mic ↔ keyboard)
+  and the .voice-active class on the mode button. No more two-button
+  toggle. Click the mic icon → voice mode. Click the keyboard icon
+  → text mode.
+
+Layout:
+  [mic] Type to Jarvis...                    [send]
+       ^ click to switch to voice
+  [kbd] Listening — speak to Jarvis...       [send]
+       ^ click to switch back to text
+
+Build: 0 warnings, 0 errors
+
+Generated with [Devin](https://devin.ai)
+
+Co-Authored-By: Devin <158243242+devin-ai-integration[bot]@users.noreply.github.com>

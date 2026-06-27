@@ -296,20 +296,18 @@ html, body {
   max-width: 800px;
   margin: 0 auto;
   width: 100%;
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
   position: relative;
   z-index: 2;
 }
 
 #fs-input-wrap {
   display: flex;
-  gap: 10px;
+  align-items: flex-end;
+  gap: 4px;
   background: var(--surface-2);
   border: 1px solid var(--glass-border);
   border-radius: var(--r-xl);
-  padding: 8px;
+  padding: 6px 6px 6px 4px;
   transition: border-color 0.15s var(--ease), box-shadow 0.15s var(--ease);
 }
 #fs-input-wrap:focus-within {
@@ -317,11 +315,44 @@ html, body {
   box-shadow: 0 0 0 3px var(--accent-soft);
 }
 
+/* Icon buttons inside the input bar */
+.fs-icon-btn {
+  width: 40px; height: 40px;
+  border-radius: var(--r-md);
+  border: none;
+  background: transparent;
+  color: var(--text-dim);
+  cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+  transition: all 0.15s var(--ease);
+}
+.fs-icon-btn:hover { background: var(--glass-hi); color: var(--text); }
+.fs-icon-btn:active { transform: scale(0.92); }
+
+/* Mode toggle icon (left side) — turns accent when voice is active */
+#fs-mode-icon.voice-active {
+  color: var(--accent);
+  background: var(--accent-soft);
+}
+#fs-mode-icon.voice-active:hover {
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+/* Send button (right side) */
+#fs-send {
+  background: linear-gradient(135deg, var(--accent), var(--accent-2));
+  color: white;
+  box-shadow: 0 2px 8px var(--accent-glow);
+}
+#fs-send:hover { transform: scale(1.06); box-shadow: 0 4px 16px var(--accent-glow); color: white; }
+
 #fs-input {
   flex: 1;
   background: transparent;
   border: none;
-  padding: 12px 14px;
+  padding: 11px 8px;
   color: var(--text);
   font-family: var(--font);
   font-size: 15px;
@@ -330,51 +361,10 @@ html, body {
   max-height: 120px;
   user-select: text;
   -webkit-user-select: text;
+  line-height: 1.5;
 }
 #fs-input::placeholder { color: #444452; }
-
-#fs-send {
-  width: 44px; height: 44px;
-  border-radius: var(--r-md);
-  border: none;
-  background: linear-gradient(135deg, var(--accent), var(--accent-2));
-  color: white; cursor: pointer;
-  display: flex; align-items: center; justify-content: center;
-  flex-shrink: 0;
-  transition: transform 0.15s var(--ease-snap), box-shadow 0.15s var(--ease);
-  box-shadow: 0 2px 8px var(--accent-glow);
-}
-#fs-send:hover { transform: scale(1.06); box-shadow: 0 4px 16px var(--accent-glow); }
-#fs-send:active { transform: scale(0.96); }
-
-/* ── Mode toggle (Voice / Type) ───────────────────────────────── */
-#fs-mode-toggle {
-  display: flex;
-  gap: 8px;
-  justify-content: center;
-}
-
-.fs-mode-btn {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 8px 16px;
-  border-radius: var(--r-md);
-  border: 1px solid var(--glass-border);
-  background: var(--surface-2);
-  color: var(--text-dim);
-  font-size: 13px;
-  font-weight: 500;
-  font-family: var(--font);
-  cursor: pointer;
-  transition: all 0.15s var(--ease);
-}
-.fs-mode-btn:hover { background: var(--glass-hi); color: var(--text-2); }
-.fs-mode-btn.active {
-  background: var(--accent-soft);
-  border-color: var(--accent);
-  color: var(--accent);
-}
+#fs-input:disabled { opacity: 0.4; }
 
 /* ── Scrollbar ────────────────────────────────────────────────── */
 ::-webkit-scrollbar { width: 6px; }
