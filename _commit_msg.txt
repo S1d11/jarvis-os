@@ -1,0 +1,54 @@
+Redesign GUI — premium dark theme with glassmorphism, rounded edges, smooth animations
+
+Complete UI overhaul for a clean, modern, premium feel:
+
+Visual design:
+- Glassmorphic panels with blur(28px) + saturate(1.5) backdrop filters
+- Rounded corners throughout (8/12/16/20/24px radius scale)
+- Soft layered shadows (sm/md/lg/xl) for depth
+- Indigo-purple accent gradient (#6C7CFF -> #9B7CFF) with glow effects
+- Subtle radial gradient desktop background
+- Translucent surfaces (rgba with 0.72-0.90 opacity)
+
+New layout:
+- Top bar (40px): start button, clock, quick settings, power — all with SVG icons
+- Dock: floating glassmorphic bar with 24px radius, hover lift + scale animation
+- Panels: slide-up + scale-in animation on open, reverse on close
+- Only one panel open at a time (auto-closes others)
+- Click desktop to dismiss any open panel
+
+Assistant panel:
+- Welcome state with floating orb and intro text
+- Typing indicator with bouncing dots
+- Markdown rendering for Jarvis responses
+- Auto-resizing textarea input
+- Gradient send button with glow
+
+Quick settings:
+- 2x2 tile grid (WiFi, Bluetooth, Airplane, Night Light) with toggle states
+- Volume + brightness sliders with custom thumbs and live value display
+- Lock + Shutdown footer items
+- SVG icons throughout
+
+Start menu:
+- Centered panel with search bar (icon + input)
+- 4-column app grid with SVG app icons
+- Hover lift animation on app tiles
+- Empty state message
+
+Power menu:
+- SVG icons for each action (lock, restart, sleep, sign out, shutdown)
+- Divider before destructive action
+- Danger color for shut down
+
+Dock:
+- Rotating conic-gradient orb for Jarvis icon
+- Running app indicator dots with accent glow
+- Snap-back easing on hover (cubic-bezier bounce)
+- Separator auto-hides when no running apps
+
+Build: 0 warnings, 0 errors
+
+Generated with [Devin](https://devin.ai)
+
+Co-Authored-By: Devin <158243242+devin-ai-integration[bot]@users.noreply.github.com>
