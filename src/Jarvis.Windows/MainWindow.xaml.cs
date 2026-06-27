@@ -109,10 +109,16 @@ public partial class MainWindow : Window, IBridgeHost
         while ((line = sr.ReadLine()) != null)
         {
             if (string.IsNullOrWhiteSpace(line)) continue;
-            var relPath = line.Trim();
-            var dest = Path.Combine(root, relPath.Replace('/', Path.DirectorySeparatorChar));
+            var relPath = line.Trim(); // e.g. "Web/orb.html"
+
+            // Strip the leading "Web/" — the resource prefix already includes it
+            var filePart = relPath.StartsWith("Web/", StringComparison.OrdinalIgnoreCase)
+                ? relPath["Web/".Length..]
+                : relPath;
+
+            var dest = Path.Combine(root, filePart.Replace('/', Path.DirectorySeparatorChar));
             Directory.CreateDirectory(Path.GetDirectoryName(dest)!);
-            var resName = resPrefix + "." + relPath.Replace('/', '.');
+            var resName = resPrefix + "." + filePart.Replace('/', '.');
             using var s = asm.GetManifestResourceStream(resName);
             if (s == null) continue;
             using var f = File.Create(dest);

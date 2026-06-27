@@ -415,19 +415,39 @@ public sealed class NativeOrbWindow : IBridgeHost, IDisposable
         var manifestName = resPrefix + ".manifest.txt";
 
         using var manifestStream = asm.GetManifestResourceStream(manifestName);
-        if (manifestStream == null) return root;
+        if (manifestStream == null)
+        {
+            System.Diagnostics.Debug.WriteLine("[NativeOrb] Manifest resource not found: " + manifestName);
+            // List available resources for debugging
+            foreach (var name in asm.GetManifestResourceNames())
+                System.Diagnostics.Debug.WriteLine("[NativeOrb]   Available: " + name);
+            return root;
+        }
 
         using var sr = new StreamReader(manifestStream);
         string? line;
         while ((line = sr.ReadLine()) != null)
         {
             if (string.IsNullOrWhiteSpace(line)) continue;
-            var relPath = line.Trim();
-            var dest = Path.Combine(root, relPath.Replace('/', Path.DirectorySeparatorChar));
+            var relPath = line.Trim(); // e.g. "Web/orb.html"
+
+            // Strip the leading "Web/" — the resource prefix already includes it
+            var filePart = relPath.StartsWith("Web/", StringComparison.OrdinalIgnoreCase)
+                ? relPath["Web/".Length..]
+                : relPath;
+
+            // Destination on disk: root/orb.html
+            var dest = Path.Combine(root, filePart.Replace('/', Path.DirectorySeparatorChar));
             Directory.CreateDirectory(Path.GetDirectoryName(dest)!);
-            var resName = resPrefix + "." + relPath.Replace('/', '.');
+
+            // Resource name: Jarvis.Core.Web.orb.html
+            var resName = resPrefix + "." + filePart.Replace('/', '.');
             using var s = asm.GetManifestResourceStream(resName);
-            if (s == null) continue;
+            if (s == null)
+            {
+                System.Diagnostics.Debug.WriteLine("[NativeOrb] Resource not found: " + resName);
+                continue;
+            }
             using var f = File.Create(dest);
             s.CopyTo(f);
         }
