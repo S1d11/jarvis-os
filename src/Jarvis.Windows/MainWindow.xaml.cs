@@ -1,6 +1,5 @@
 using System;
 using System.IO;
-using System.Reflection;
 using System.Threading.Tasks;
 using Jarvis.Core;
 using Jarvis.Core.Shell;
@@ -12,10 +11,13 @@ using WpfMessageBox = System.Windows.MessageBox;
 
 namespace Jarvis.Windows;
 
+/// <summary>
+/// The full Jarvis desktop shell window. Only shown in --shell mode
+/// (when replacing Explorer). In normal background mode, this window
+/// is not created — only the OrbWindow is used.
+/// </summary>
 public partial class MainWindow : Window, IBridgeHost
 {
-    private NotifyIconHelper? _tray;
-    private bool _reallyClose;
     private readonly Bridge _bridge;
     private readonly WindowsSystemAccess _sys;
     private readonly WindowService _winSvc;
@@ -44,7 +46,6 @@ public partial class MainWindow : Window, IBridgeHost
                 "Jarvis", System.Windows.MessageBoxButton.OK, System.Windows.MessageBoxImage.Error);
         }
 
-        _tray = new NotifyIconHelper(this);
         EnableDarkTitleBar();
 
         // Shell mode: maximize to fill the screen
@@ -53,13 +54,6 @@ public partial class MainWindow : Window, IBridgeHost
             WindowState = WindowState.Maximized;
             WindowStyle = WindowStyle.None;
             ResizeMode = ResizeMode.NoResize;
-        }
-
-        // Start minimized to tray if configured
-        if (Properties.Settings.Default.StartMinimized)
-        {
-            Hide();
-            _tray?.ShowBalloon("Jarvis", "Jarvis is running in the background. Click the tray icon to open.");
         }
     }
 
@@ -140,18 +134,16 @@ public partial class MainWindow : Window, IBridgeHost
         }
     }
 
-    // ── IBridgeHost implementation ──────────────────────────
+    // ── IBridgeHost ──────────────────────────────────────────
     public void PostMessage(string json) => Dispatcher.Invoke(() =>
         WebView.CoreWebView2?.PostWebMessageAsJson(json));
 
     public void NavigateReload() => Dispatcher.Invoke(() => WebView.CoreWebView2?.Reload());
-
     public void ToggleDevTools() => Dispatcher.Invoke(() =>
     {
         if (WebView.CoreWebView2 != null)
             WebView.CoreWebView2.OpenDevToolsWindow();
     });
-
     public void SetZoom(double z) => Dispatcher.Invoke(() => WebView.ZoomFactor = z);
 
     public void BringToFront()
@@ -166,28 +158,6 @@ public partial class MainWindow : Window, IBridgeHost
 
     public void CloseApp()
     {
-        _reallyClose = true;
         Dispatcher.Invoke(() => Close());
-    }
-
-    // ── Tray / Close behavior ───────────────────────────────
-    private void Window_StateChanged(object? sender, EventArgs e)
-    {
-        if (WindowState == WindowState.Minimized) Hide();
-    }
-
-    private void Window_Closing(object? sender, System.ComponentModel.CancelEventArgs e)
-    {
-        var behavior = Jarvis.Core.AppContext.Current.Config.Current.CloseBehavior;
-
-        if (behavior == "quit" || _reallyClose)
-        {
-            _tray?.Dispose();
-            return;
-        }
-
-        e.Cancel = true;
-        Hide();
-        _tray?.ShowBalloon("Jarvis", "Jarvis is still running in the background.");
     }
 }

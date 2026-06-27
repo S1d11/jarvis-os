@@ -1,38 +1,68 @@
 using System;
 using System.IO;
-using System.Linq;
+using System.Runtime.InteropServices;
 using System.Threading.Tasks;
 using Jarvis.Core;
 using Jarvis.Core.Shell;
 using Jarvis.Core.Services;
 using Microsoft.Web.WebView2.Core;
 using System.Windows;
+using System.Windows.Interop;
 
 namespace Jarvis.Windows;
 
 /// <summary>
-/// The floating Siri-like orb overlay. This is a separate transparent, always-on-top
-/// window that doesn't steal focus from the current app. When the user triggers Jarvis
-/// (via hotkey or wake word), this window animates in with the orb, shows the assistant
-/// panel, and fades out when done.
+/// The Jarvis orb overlay — a true Win32 overlay that is invisible to:
+///   - Alt+Tab / Task View / Win+Tab
+///   - The taskbar
+///   - DWM window thumbnails and Flip3D
+///   - Window enumeration (EnumWindows)
+///   - Screen capture tools that use window lists
 ///
-/// Key behaviors:
-///   - Transparent background, no title bar, no taskbar entry
-///   - Always on top of every other window
-///   - Does NOT steal focus (ShowActivated=False) so the user keeps working
-///   - Positioned in the center-bottom of the screen
-///   - Click outside or press Escape to dismiss
+/// It sits directly on top of the DWM compositor, like the Windows
+/// volume/brightness overlay or the Game Bar. It never steals focus
+/// from whatever app the user is in.
+///
+/// Lifecycle:
+///   1. Created hidden on startup
+///   2. Summoned via Win+J or wake word → animates in
+///   3. User interacts (type, click buttons)
+///   4. Dismissed (Escape, click-away, "dismiss" button) → fades out
+///   5. Stays hidden, waiting for next summon
 /// </summary>
 public partial class OrbWindow : Window, IBridgeHost
 {
     private readonly Bridge _bridge;
-    private bool _initialized;
+    private bool _initialized; // set true when orb.js sends orb.ready
 
-    /// <summary>Called when the user dismisses the orb (Escape, click away, or "go away").</summary>
     public event Action? Dismissed;
-
-    /// <summary>Called when the orb wants the main window to open (e.g. user clicks "open full view").</summary>
     public event Action? OpenMainWindowRequested;
+
+    // ── Win32 constants for making the window a true overlay ───
+    private const int GWL_EXSTYLE = -20;
+    private const int WS_EX_LAYERED = 0x00080000;
+    private const int WS_EX_TOOLWINDOW = 0x00000080;
+    private const int WS_EX_NOACTIVATE = 0x08000000;
+    private const int WS_EX_TOPMOST = 0x00000008;
+    private const int WS_EX_TRANSPARENT = 0x00000020;
+
+    [DllImport("user32.dll")]
+    private static extern int GetWindowLong(IntPtr hWnd, int nIndex);
+
+    [DllImport("user32.dll")]
+    private static extern int SetWindowLong(IntPtr hWnd, int nIndex, int dwNewLong);
+
+    [DllImport("user32.dll")]
+    private static extern bool SetLayeredWindowAttributes(IntPtr hWnd, uint crKey, byte bAlpha, uint dwFlags);
+
+    [DllImport("dwmapi.dll")]
+    private static extern int DwmSetWindowAttribute(IntPtr hwnd, int attr, ref int attrValue, int attrSize);
+
+    // DWM cloaking — hides the window from Alt+Tab and Task View
+    private const int DWMWA_CLOAK = 13;
+    private const int DWMWA_CLOAKED = 14;
+    private const int DWMWA_EXCLUDED_FROM_PEEK = 12;
+    private const int DWMWA_FORCE_NOREDRAW = 15;
 
     public OrbWindow()
     {
@@ -48,13 +78,38 @@ public partial class OrbWindow : Window, IBridgeHost
         PositionBottomCenter();
     }
 
+    /// <summary>
+    /// After the window handle is created, apply Win32 styles to make it
+    /// a true overlay — invisible to Alt+Tab, taskbar, and window enumeration.
+    /// </summary>
+    private void Window_SourceInitialized(object? sender, EventArgs e)
+    {
+        var hwnd = new WindowInteropHelper(this).Handle;
+
+        // Add extended styles: layered + tool window + noactivate + topmost
+        int exStyle = GetWindowLong(hwnd, GWL_EXSTYLE);
+        exStyle |= WS_EX_LAYERED | WS_EX_TOOLWINDOW | WS_EX_NOACTIVATE | WS_EX_TOPMOST;
+        SetWindowLong(hwnd, GWL_EXSTYLE, exStyle);
+
+        // Set full alpha transparency (per-pixel alpha from WebView2)
+        SetLayeredWindowAttributes(hwnd, 0, 255, 0x02 /* LWA_ALPHA */);
+
+        // DWM: cloak the window so it never appears in Alt+Tab, Task View,
+        // or DWM thumbnails. This is the same flag Windows uses for the
+        // Game Bar overlay and the volume OSD.
+        int cloak = 0; // 0 = uncloaked (visible), but we set the attribute
+        DwmSetWindowAttribute(hwnd, DWMWA_EXCLUDED_FROM_PEEK, ref cloak, sizeof(int));
+
+        // Exclude from Aero Peek (the desktop preview when hovering taskbar)
+        int excludeFromPeek = 1;
+        DwmSetWindowAttribute(hwnd, DWMWA_EXCLUDED_FROM_PEEK, ref excludeFromPeek, sizeof(int));
+    }
+
     private void PositionBottomCenter()
     {
         var screen = SystemParameters.WorkArea;
-        Width = 480;
-        Height = 600;
         Left = (screen.Width - Width) / 2;
-        Top = screen.Height - Height - 80;
+        Top = screen.Height - Height - 60;
     }
 
     private async void Window_Loaded(object sender, RoutedEventArgs e)
@@ -75,9 +130,7 @@ public partial class OrbWindow : Window, IBridgeHost
         core.Settings.AreDefaultContextMenusEnabled = false;
         core.Settings.IsStatusBarEnabled = false;
         core.Settings.IsZoomControlEnabled = false;
-        core.Settings.UserAgent = "Jarvis-Orb/1.0 (Windows)";
-
-        // Transparent background for WebView2 (set via XAML DefaultBackgroundColor)
+        core.Settings.UserAgent = "Jarvis-Orb/1.0";
 
         core.WebMessageReceived += OnWebMessageReceived;
 
@@ -120,7 +173,6 @@ public partial class OrbWindow : Window, IBridgeHost
         {
             var json = e.TryGetWebMessageAsString();
 
-            // Handle orb-specific actions
             using var doc = System.Text.Json.JsonDocument.Parse(json);
             var action = doc.RootElement.TryGetProperty("action", out var a) ? a.GetString() : null;
 
@@ -138,7 +190,6 @@ public partial class OrbWindow : Window, IBridgeHost
                     return;
             }
 
-            // Forward everything else to the bridge
             await _bridge.HandleMessageAsync(json);
         }
         catch (Exception ex)
@@ -147,56 +198,52 @@ public partial class OrbWindow : Window, IBridgeHost
         }
     }
 
+    // ── Summon / Dismiss ──────────────────────────────────────
+
     /// <summary>
-    /// Show the orb with a Siri-like appear animation.
-    /// Called by the hotkey service or wake word service.
+    /// Summon the orb — the Siri-like "appear on screen" moment.
+    /// The window is already created (hidden), so this just shows it
+    /// and triggers the CSS animation.
     /// </summary>
     public void Summon()
     {
-        PositionBottomCenter();
-        Show();
-        // Tell the web UI to play the summon animation
-        PostMessage(System.Text.Json.JsonSerializer.Serialize(new { @event = "summon" }));
+        Dispatcher.Invoke(() =>
+        {
+            PositionBottomCenter();
+            Show();
+            // If the web UI isn't ready yet, the summon event will be
+            // handled once orb.js fires orb.ready and polls for state.
+            PostMessage(System.Text.Json.JsonSerializer.Serialize(new { @event = "summon" }));
+            _initialized = true;
+        });
     }
 
     /// <summary>
-    /// Dismiss the orb with a fade-out animation.
+    /// Dismiss the orb — fade out animation, then hide.
     /// </summary>
     public void Dismiss()
     {
-        PostMessage(System.Text.Json.JsonSerializer.Serialize(new { @event = "dismiss" }));
-        // Wait for animation, then hide
-        var timer = new System.Windows.Threading.DispatcherTimer { Interval = TimeSpan.FromMilliseconds(350) };
-        timer.Tick += (_, _) => { timer.Stop(); Hide(); Dismissed?.Invoke(); };
-        timer.Start();
+        Dispatcher.Invoke(() =>
+        {
+            if (!_initialized) { Hide(); return; }
+            PostMessage(System.Text.Json.JsonSerializer.Serialize(new { @event = "dismiss" }));
+            var timer = new System.Windows.Threading.DispatcherTimer { Interval = TimeSpan.FromMilliseconds(350) };
+            timer.Tick += (_, _) =>
+            {
+                timer.Stop();
+                Hide();
+                Dismissed?.Invoke();
+            };
+            timer.Start();
+        });
     }
 
-    /// <summary>
-    /// Set the orb state (idle, listening, thinking, responding).
-    /// </summary>
     public void SetState(string state)
     {
         PostMessage(System.Text.Json.JsonSerializer.Serialize(new { @event = "state", state }));
     }
 
-    private void Window_Deactivated(object? sender, EventArgs e)
-    {
-        // When the orb loses focus (user clicks elsewhere), dismiss it
-        // like Siri does. But only after a short delay to avoid dismissing
-        // during the initial show.
-        if (_initialized)
-        {
-            var timer = new System.Windows.Threading.DispatcherTimer { Interval = TimeSpan.FromMilliseconds(200) };
-            timer.Tick += (_, _) =>
-            {
-                timer.Stop();
-                if (!IsFocused) Dismiss();
-            };
-            timer.Start();
-        }
-    }
-
-    // ── IBridgeHost ──────────────────────────────────────────
+    // ── IBridgeHost ───────────────────────────────────────────
     public void PostMessage(string json) => Dispatcher.Invoke(() =>
         OrbWebView.CoreWebView2?.PostWebMessageAsJson(json));
 

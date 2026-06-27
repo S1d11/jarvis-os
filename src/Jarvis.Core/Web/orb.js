@@ -4,12 +4,11 @@
 
 const Orb = {
   _states: ['idle', 'listening', 'thinking', 'responding'],
+  _ready: false,
+  _pendingSummon: false,
 
   init() {
     const overlay = document.getElementById('orb-overlay');
-
-    // Tell C# we're ready
-    this._post({ action: 'orb.ready' });
 
     // Button handlers
     document.getElementById('orb-send').onclick = () => this.send();
@@ -29,10 +28,22 @@ const Orb = {
 
     // Welcome message
     this._addMessage('jarvis', "Hi, I'm Jarvis. How can I help?");
+
+    // Mark ready and process any queued summon
+    this._ready = true;
+    this._post({ action: 'orb.ready' });
+    if (this._pendingSummon) {
+      this._pendingSummon = false;
+      this.summon();
+    }
   },
 
   // ── Summon / Dismiss animations ─────────────────────────────
   summon() {
+    if (!this._ready) {
+      this._pendingSummon = true;
+      return;
+    }
     const overlay = document.getElementById('orb-overlay');
     overlay.classList.remove('dismissing');
     overlay.classList.add('summoned');

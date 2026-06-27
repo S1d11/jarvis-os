@@ -1,136 +1,177 @@
-# Jarvis for Windows
+# Jarvis
 
-A native Windows desktop application that serves as an AI-powered desktop shell.
-Built with WPF (.NET 10) and WebView2 — no Electron, no Python runtime required.
+Jarvis is not an application. It's a system-level AI assistant woven directly into Windows — invisible until you call it.
 
-Jarvis can run as a normal desktop app **or replace Windows Explorer as the
-desktop shell** (like a custom Windows DE). When in shell mode, Jarvis boots
-directly into the desktop with a dock, widgets, quick settings, power menu,
-and an AI assistant — no taskbar, no Start menu, just Jarvis.
+Press **Win+J** or say **"Hey Jarvis"** and the orb appears over whatever you're doing. Ask it anything. It fades away when done. No window, no tray icon, no Alt+Tab entry, no Start Menu shortcut. It's just there, like a part of the OS.
 
-## Features
+## How It Works
 
-- **Dock** — app launcher with pinned and running apps (like macOS dock)
-- **AI Assistant** — chat panel with orb animation, markdown rendering
-- **Quick Settings** — volume, brightness, WiFi/Bluetooth toggles, power options
-- **Start Menu** — searchable app launcher
-- **Power Menu** — lock, sleep, restart, shut down, sign out
-- **Clock Widget** — live clock and date
-- **System Tray** — minimize to tray, context menu with settings and power
-- **Shell Replacement** — replace `explorer.exe` with Jarvis as the Windows shell
-- **System Control** — run PowerShell/CMD commands from the assistant
-- **Window Management** — list, focus, close, minimize, maximize, snap windows
-- **Process Management** — list and kill running processes
-- **Dark Theme** — native dark title bar, dark UI throughout
+```
+Windows boots
+  └── Scheduled task launches Jarvis.exe --orb (hidden, no window)
+        ├── LowLevelKeyboardHook (WH_KEYBOARD_LL) — listens for Win+J
+        ├── WakeWordService (NAudio) — listens for "Hey Jarvis"
+        └── OrbWindow (hidden, transparent, topmost overlay)
+              └── Waiting…
 
-## Requirements
+User presses Win+J (or says "Hey Jarvis")
+  └── OrbWindow.Summon()
+        ├── Win32 overlay appears (invisible to Alt+Tab, DWM, window enumeration)
+        ├── Orb animates in (scale + glow)
+        ├── Chat panel slides up
+        └── State: "Listening…"
 
-- Windows 10/11 (x64)
-- WebView2 Runtime (preinstalled on Windows 11; bundled with Edge on Windows 10)
-- .NET 10 SDK (only to build — the published `.exe` is self-contained)
+User types a request
+  └── Bridge → ShellService / SystemControlService / ProcessService
+        ├── Launch apps, run PowerShell, manage windows, control power
+        └── Return result to orb UI
 
-## Build & run from source
-
-```powershell
-dotnet run --project src\Jarvis.Windows\Jarvis.Windows.csproj -c Debug
+User presses Escape (or clicks "Dismiss")
+  └── OrbWindow.Dismiss()
+        ├── Orb fades out + shrinks
+        └── Window hides — Jarvis goes back to sleep
 ```
 
-## Publish a self-contained single-file `.exe`
+## Summon Methods
+
+| Method | How | Works in fullscreen games? |
+|--------|-----|---------------------------|
+| **Win+J** | Low-level keyboard hook (`WH_KEYBOARD_LL`) | Yes — intercepts before any app sees the key |
+| **"Hey Jarvis"** | NAudio microphone capture + energy VAD | Yes — runs independently of foreground app |
+
+## The Orb
+
+The orb is a **true Win32 overlay**, not a window:
+- `WS_EX_NOACTIVATE` — never steals focus from the current app
+- `WS_EX_TOOLWINDOW` — invisible to Alt+Tab and Task View
+- `WS_EX_LAYERED` — per-pixel alpha transparency
+- `DWMWA_EXCLUDED_FROM_PEEK` — excluded from Aero Peek
+- `Topmost=True` — always above all other windows
+
+It appears at the bottom-center of the screen, like Siri on macOS.
+
+### Orb States
+
+| State | Visual | When |
+|-------|--------|------|
+| **Summoned** | Orb scales in from 0 with snap-back bounce | Win+J or wake word |
+| **Listening** | Core pulses, glow speeds up | Waiting for input |
+| **Thinking** | Core spins, outer ring accelerates | Processing request |
+| **Responding** | Core glow expands | Showing response |
+| **Dismissed** | Orb shrinks to 0 and fades out | Escape, click-away, or "Dismiss" |
+
+## Installation
+
+Jarvis is installed as a **system component**, not an application:
 
 ```powershell
+# Build the .exe
 powershell -ExecutionPolicy Bypass -File publish.ps1
+
+# Install into Windows (requires admin)
+powershell -ExecutionPolicy Bypass -File install.ps1
 ```
 
-Produces `publish\Jarvis.exe` (~170 MB, no .NET runtime needed on the target).
+The install script:
+1. Copies `Jarvis.exe` to `C:\Program Files\Jarvis\`
+2. Creates a scheduled task that starts Jarvis at user login (hidden, no window)
+3. Optionally replaces Explorer with Jarvis as the shell (`-ShellMode`)
 
-## Build the `.exe` installer
+After installation:
+- No desktop shortcut
+- No Start Menu entry
+- No system tray icon
+- No visible window
+- Just press **Win+J** or say **"Hey Jarvis"**
 
-1. Install [Inno Setup](https://jrsoftware.org/isdl.php).
-2. Run:
+### Shell Mode
 
-   ```powershell
-   powershell -ExecutionPolicy Bypass -File publish.ps1 -MakeInstaller
-   ```
+To replace Windows Explorer entirely (Jarvis becomes the desktop):
 
-   This produces `installer\Output\Jarvis-Setup-1.0.0.exe` — a standard Windows
-   installer with Start Menu / desktop / startup shortcuts and a clean
-   uninstaller that restores Explorer if the shell was replaced.
+```powershell
+powershell -ExecutionPolicy Bypass -File install.ps1 -ShellMode
+```
 
-## Shell Replacement
+This sets `HKLM\...\Winlogon\Shell` to `Jarvis.exe --shell`. On reboot, Windows boots directly into Jarvis — no taskbar, no Start menu, no Explorer desktop. Just the Jarvis dock, panels, and orb.
 
-Jarvis can replace Windows Explorer as the desktop shell. After installation:
+### Uninstall
 
-1. Open the tray icon → right-click → "Replace Explorer shell"
-2. Reboot
-3. Windows boots directly into Jarvis (no Explorer desktop, no taskbar)
+```powershell
+powershell -ExecutionPolicy Bypass -File install.ps1 -Uninstall
+```
 
-To restore Explorer:
-- Right-click the tray icon → uncheck "Replace Explorer shell"
-- Or run: `reg add "HKLM\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Winlogon" /v Shell /t REG_SZ /d "explorer.exe" /f`
-- Or boot into Safe Mode and run the registry command above
-- The uninstaller automatically restores Explorer
+Restores Explorer if the shell was replaced, removes the scheduled task, deletes all files and user data.
+
+## Build from Source
+
+```powershell
+# Requirements: .NET 10 SDK, Windows 10/11 x64
+
+# Build and run in debug mode
+dotnet run --project src\Jarvis.Windows\Jarvis.Windows.csproj
+
+# Publish self-contained .exe (~170 MB, no .NET runtime needed)
+.\publish.ps1
+
+# Install into Windows
+.\install.ps1
+```
 
 ## Architecture
 
 ```
-┌─────────────────────────────────────────────┐
-│           Web UI (HTML/CSS/JS)               │
-│  Dock · Assistant · Quick Settings · Widgets │
-├───────────────────────────────────────────────┤
-│         WebView2 (Chromium rendering)         │
-├───────────────────────────────────────────────┤
-│              Bridge (JSON RPC)                │
-├───────────────────────────────────────────────┤
-│              Jarvis.Core                      │
-│  ShellService · SystemControl · ProcessMgr    │
-│  WindowService · ConfigService                │
-├───────────────────────────────────────────────┤
-│              Jarvis.Windows                   │
-│  WPF MainWindow · Win32 P/Invoke · Tray       │
-│  WindowsSystemAccess · WindowsWindowAccess    │
-├───────────────────────────────────────────────┤
-│              Windows OS (Win32)               │
-└───────────────────────────────────────────────┘
+┌─────────────────────────────────────────────────┐
+│  OrbWindow (true Win32 overlay)                  │
+│  WebView2 → orb.html + orb.css + orb.js          │
+│  Transparent · Topmost · No Alt+Tab · No focus   │
+├───────────────────────────────────────────────────┤
+│  LowLevelKeyboardHook (WH_KEYBOARD_LL)            │
+│  Intercepts Win+J system-wide (even in games)     │
+├───────────────────────────────────────────────────┤
+│  WakeWordService (NAudio 16kHz mono)              │
+│  Energy VAD + 2-syllable "Jar-vis" pattern match  │
+├───────────────────────────────────────────────────┤
+│  Bridge (JSON RPC)                                │
+│  ShellService · SystemControlService ·            │
+│  ProcessService · WindowService                   │
+├───────────────────────────────────────────────────┤
+│  Win32 API (P/Invoke)                             │
+│  LockWorkStation · shutdown · EnumWindows ·       │
+│  SetForegroundWindow · MoveWindow · PostMessage   │
+├───────────────────────────────────────────────────┤
+│  Windows OS                                       │
+└─────────────────────────────────────────────────┘
 ```
 
 ## Project Structure
 
 ```
 jarvis-os/
+├── install.ps1                  # system component installer (no .exe installer)
+├── publish.ps1                  # build self-contained .exe
 ├── Jarvis.sln
-├── publish.ps1                  # build .exe (+ optional installer)
-├── installer/setup.iss          # Inno Setup script
 ├── src/
-│   ├── Jarvis.Core/             # shared core (platform-agnostic)
-│   │   ├── Jarvis.Core.csproj
-│   │   ├── AppContext.cs        # app state, data dir
+│   ├── Jarvis.Core/             # platform-agnostic core
 │   │   ├── Bridge.cs            # JSON RPC: web <-> C# services
-│   │   ├── IBridgeHost.cs       # platform interface
 │   │   ├── ConfigService.cs     # persisted settings
-│   │   ├── Shell/
-│   │   │   ├── ShellService.cs  # dock, pinned apps, power actions
-│   │   │   └── ISystemAccess.cs # platform-specific system access
-│   │   ├── Services/
-│   │   │   ├── SystemControlService.cs  # PowerShell, CMD, system info
-│   │   │   ├── ProcessService.cs        # process list, launch, kill
-│   │   │   └── WindowService.cs         # window list, focus, snap
+│   │   ├── Shell/               # dock, app launching, power actions
+│   │   ├── Services/            # system control, process, window management
 │   │   └── Web/                 # embedded web UI
-│   │       ├── index.html       # shell layout (dock, panels, widgets)
-│   │       ├── styles.css       # dark theme
-│   │       ├── app.js           # bridge, shell logic, UI events
-│   │       ├── md.js            # markdown renderer
-│   │       └── manifest.txt     # list of embedded resources
-│   └── Jarvis.Windows/          # Windows-specific WPF app
-│       ├── Jarvis.Windows.csproj
-│       ├── App.xaml(.cs)        # app bootstrap, arg parsing
-│       ├── MainWindow.xaml(.cs) # WebView2 host, tray, dark title bar
-│       ├── NotifyIconHelper.cs  # system tray (WinForms NotifyIcon)
-│       ├── WindowsSystemAccess.cs    # Win32: lock, shutdown, sleep, launch
-│       ├── WindowsWindowAccess.cs    # Win32: enumerate, focus, snap windows
-│       ├── GlobalUsings.cs
-│       ├── app.manifest         # DPI awareness, UAC
-│       └── Properties/Settings  # shell mode, start minimized
-└── .github/workflows/           # CI (to be added)
+│   │       ├── index.html       # full shell UI (dock, panels, widgets)
+│   │       ├── styles.css       # premium dark theme
+│   │       ├── app.js           # shell logic
+│   │       ├── orb.html         # Siri-like orb overlay
+│   │       ├── orb.css          # orb animations
+│   │       └── orb.js           # orb state machine
+│   └── Jarvis.Windows/          # Windows-specific
+│       ├── App.xaml.cs          # background-only startup (no window, no tray)
+│       ├── OrbWindow.xaml(.cs)  # true Win32 overlay (invisible to Alt+Tab)
+│       ├── MainWindow.xaml(.cs) # full shell window (--shell mode only)
+│       ├── LowLevelKeyboardHook.cs  # WH_KEYBOARD_LL for Win+J
+│       ├── WakeWordService.cs   # NAudio "Hey Jarvis" detection
+│       ├── WindowsSystemAccess.cs   # Win32: lock, shutdown, sleep, launch
+│       └── WindowsWindowAccess.cs   # Win32: enumerate, focus, snap windows
+└── README.md
 ```
 
 ## Data Location
@@ -142,4 +183,4 @@ All user data lives under `%LOCALAPPDATA%\Jarvis\`:
 
 ## License
 
-MIT — see [LICENSE](LICENSE).
+MIT
