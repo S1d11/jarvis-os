@@ -8,13 +8,25 @@
 </head>
 <body>
 
-  <!-- ═══ COMPACT MODE — floating orb ═══════════════════════════ -->
+  <!-- ═══ COMPACT MODE — floating glass orb ══════════════════════ -->
   <div id="orb-compact">
     <div id="orb-stage">
-      <div id="orb-glow"></div>
+      <!-- Layer 0: soft outer bloom -->
+      <div id="orb-bloom"></div>
+      <!-- Layer 1: subtle outer ring -->
       <div id="orb-outer-ring"></div>
-      <div id="orb-mid-ring"></div>
-      <div id="orb-core"></div>
+      <!-- Layer 2: bright caustic rim (light concentrating at edge) -->
+      <div id="orb-rim"></div>
+      <!-- Layer 3: dark glass sphere body -->
+      <div id="orb-core">
+        <!-- Internal spectral caustic (refracted light inside) -->
+        <div id="orb-caustic"></div>
+        <!-- Secondary faint caustic for depth -->
+        <div id="orb-caustic-2"></div>
+      </div>
+      <!-- Layer 4: sharp glossy surface reflection -->
+      <div id="orb-reflection"></div>
+      <!-- Layer 5: soft surface shimmer -->
       <div id="orb-shimmer"></div>
     </div>
   </div>

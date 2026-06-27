@@ -57,141 +57,192 @@ html, body {
   transition: transform 0.3s var(--ease), opacity 0.25s var(--ease);
 }
 
-/* ── The dark glossy sphere ──────────────────────────────────── */
-#orb-core {
-  width: 56px; height: 56px; border-radius: 50%;
-  background:
-    radial-gradient(circle at 32% 28%, rgba(70, 70, 78, 0.9) 0%, transparent 35%),
-    radial-gradient(circle at 50% 50%, rgba(25, 25, 30, 0.6) 0%, rgba(8, 8, 10, 1) 70%);
-  position: relative;
-  overflow: hidden;
-  box-shadow:
-    0 0 24px rgba(120, 120, 140, 0.12),
-    inset 0 0 24px rgba(0, 0, 0, 0.6);
-}
+/* ═══════════════════════════════════════════════════════════════
+   COMPACT ORB — Glass sphere with caustic refraction
+   ═══════════════════════════════════════════════════════════════ */
 
-/* Spectral arc — the rainbow light sweeping across the sphere */
-#orb-core::before {
-  content: '';
-  position: absolute;
-  inset: -30%;
-  border-radius: 50%;
+/* Layer 0: soft outer bloom */
+#orb-bloom {
+  position: absolute; inset: -40px; border-radius: 50%;
   background: conic-gradient(
-    from 200deg,
+    from 0deg,
     transparent 0deg,
-    transparent 25deg,
-    rgba(255, 100, 100, 0.12) 45deg,
-    rgba(255, 200, 80, 0.22) 60deg,
-    rgba(200, 255, 120, 0.22) 75deg,
-    rgba(80, 220, 255, 0.22) 90deg,
-    rgba(160, 120, 255, 0.15) 105deg,
-    transparent 125deg,
+    rgba(255, 100, 100, 0.015) 50deg,
+    rgba(255, 200, 80, 0.025) 90deg,
+    rgba(80, 220, 255, 0.025) 130deg,
+    rgba(160, 120, 255, 0.015) 170deg,
+    transparent 210deg,
     transparent 360deg
   );
-  filter: blur(5px);
-  animation: sweep-arc 5s linear infinite;
+  filter: blur(20px);
+  animation: sweep-arc 12s linear infinite;
+  pointer-events: none;
 }
 @keyframes sweep-arc {
   from { transform: rotate(0deg); }
   to { transform: rotate(360deg); }
 }
 
-/* Secondary slower arc for depth */
-#orb-core::after {
-  content: '';
-  position: absolute;
-  inset: -40%;
-  border-radius: 50%;
-  background: conic-gradient(
-    from 160deg,
-    transparent 0deg,
-    transparent 40deg,
-    rgba(255, 150, 80, 0.06) 60deg,
-    rgba(120, 255, 200, 0.08) 80deg,
-    rgba(100, 160, 255, 0.06) 100deg,
-    transparent 120deg,
-    transparent 360deg
-  );
-  filter: blur(8px);
-  animation: sweep-arc 8s linear infinite reverse;
+/* Layer 1: subtle outer ring */
+#orb-outer-ring {
+  position: absolute; inset: -3px; border-radius: 50%;
+  border: 1px solid rgba(255, 255, 255, 0.03);
+  pointer-events: none;
+  animation: ring-breathe 5s var(--ease) infinite;
+}
+@keyframes ring-breathe {
+  0%, 100% { opacity: 0.25; }
+  50% { opacity: 0.5; }
 }
 
-/* Glossy surface reflection */
+/* Layer 2: bright caustic rim — light concentrating at sphere edge */
+#orb-rim {
+  position: absolute;
+  width: 62px; height: 62px; border-radius: 50%;
+  background: radial-gradient(circle,
+    transparent 0%,
+    transparent 72%,
+    rgba(255, 255, 255, 0.04) 80%,
+    rgba(180, 200, 255, 0.06) 86%,
+    rgba(160, 180, 255, 0.03) 92%,
+    transparent 100%
+  );
+  pointer-events: none;
+  animation: rim-shift 4s var(--ease) infinite;
+}
+@keyframes rim-shift {
+  0%, 100% { filter: hue-rotate(0deg) brightness(1); }
+  33% { filter: hue-rotate(40deg) brightness(1.15); }
+  66% { filter: hue-rotate(-30deg) brightness(1.05); }
+}
+
+/* Layer 3: dark glass sphere body — volumetric depth */
+#orb-core {
+  width: 58px; height: 58px; border-radius: 50%;
+  position: relative;
+  overflow: hidden;
+  background:
+    /* Surface reflection on top-left */
+    radial-gradient(circle at 30% 25%, rgba(255,255,255,0.08) 0%, transparent 30%),
+    /* Edge light (glass catching light at rim) */
+    radial-gradient(circle at 70% 80%, rgba(120, 140, 180, 0.04) 0%, transparent 25%),
+    /* Deep dark body */
+    radial-gradient(circle at 50% 55%, rgba(12, 12, 16, 0.3) 0%, rgba(6, 6, 8, 0.95) 55%, rgba(2, 2, 4, 1) 100%);
+  box-shadow:
+    0 0 20px rgba(100, 100, 120, 0.08),
+    inset 0 0 18px rgba(0, 0, 0, 0.7);
+}
+
+/* Internal spectral caustic — refracted light sweeping inside sphere */
+#orb-caustic {
+  position: absolute;
+  inset: -25%;
+  border-radius: 50%;
+  background: conic-gradient(
+    from 190deg,
+    transparent 0deg,
+    transparent 20deg,
+    rgba(255, 120, 80, 0.10) 40deg,
+    rgba(255, 210, 90, 0.22) 55deg,
+    rgba(160, 255, 140, 0.18) 70deg,
+    rgba(80, 210, 255, 0.20) 85deg,
+    rgba(180, 140, 255, 0.12) 100deg,
+    transparent 115deg,
+    transparent 360deg
+  );
+  filter: blur(4px);
+  animation: sweep-arc 6s linear infinite;
+  mix-blend-mode: screen;
+}
+
+/* Secondary faint caustic for volumetric depth */
+#orb-caustic-2 {
+  position: absolute;
+  inset: -35%;
+  border-radius: 50%;
+  background: conic-gradient(
+    from 150deg,
+    transparent 0deg,
+    transparent 35deg,
+    rgba(255, 180, 100, 0.05) 55deg,
+    rgba(100, 220, 200, 0.07) 75deg,
+    rgba(140, 160, 255, 0.05) 95deg,
+    transparent 110deg,
+    transparent 360deg
+  );
+  filter: blur(7px);
+  animation: sweep-arc 9s linear infinite reverse;
+  mix-blend-mode: screen;
+}
+
+/* Layer 4: sharp glossy surface reflection — crisp white highlight */
+#orb-reflection {
+  position: absolute;
+  top: 10px; left: 13px;
+  width: 16px; height: 12px;
+  border-radius: 50%;
+  background: radial-gradient(ellipse at 40% 40%,
+    rgba(255,255,255,0.55) 0%,
+    rgba(255,255,255,0.15) 45%,
+    transparent 70%);
+  filter: blur(1.5px);
+  pointer-events: none;
+  animation: reflection-shift 8s var(--ease) infinite;
+}
+@keyframes reflection-shift {
+  0%, 100% { transform: translate(0, 0) scale(1); opacity: 0.6; }
+  50% { transform: translate(1px, 0.5px) scale(1.05); opacity: 0.75; }
+}
+
+/* Layer 5: soft secondary reflection highlight */
 #orb-shimmer {
   position: absolute;
-  top: 12px; left: 16px;
-  width: 14px; height: 10px;
+  top: 18px; left: 22px;
+  width: 8px; height: 6px;
   border-radius: 50%;
-  background: radial-gradient(ellipse, rgba(255,255,255,0.25) 0%, transparent 70%);
+  background: radial-gradient(ellipse, rgba(255,255,255,0.20) 0%, transparent 70%);
   filter: blur(2px);
   pointer-events: none;
-  animation: shimmer-drift 6s var(--ease) infinite;
+  animation: shimmer-drift 7s var(--ease) infinite;
 }
 @keyframes shimmer-drift {
-  0%, 100% { transform: translate(0, 0); opacity: 0.25; }
-  50% { transform: translate(2px, 1px); opacity: 0.35; }
-}
-
-/* ── Outer spectral bloom ────────────────────────────────────── */
-#orb-glow {
-  position: absolute; inset: -36px; border-radius: 50%;
-  background: conic-gradient(
-    from 0deg,
-    transparent 0deg,
-    rgba(255, 100, 100, 0.02) 50deg,
-    rgba(255, 200, 80, 0.04) 80deg,
-    rgba(80, 220, 255, 0.04) 120deg,
-    rgba(160, 120, 255, 0.02) 160deg,
-    transparent 200deg,
-    transparent 360deg
-  );
-  filter: blur(16px);
-  animation: sweep-arc 10s linear infinite;
-  pointer-events: none;
-}
-
-/* Subtle ring around the orb */
-#orb-outer-ring {
-  position: absolute; inset: -4px; border-radius: 50%;
-  border: 1px solid rgba(255, 255, 255, 0.04);
-  pointer-events: none;
-  animation: ring-pulse 4s var(--ease) infinite;
-}
-@keyframes ring-pulse {
-  0%, 100% { opacity: 0.3; }
-  50% { opacity: 0.6; }
+  0%, 100% { transform: translate(0, 0); opacity: 0.2; }
+  50% { transform: translate(1.5px, 1px); opacity: 0.3; }
 }
 
 /* Compact state animations */
 #orb-compact.listening #orb-core {
   box-shadow:
-    0 0 32px rgba(120, 120, 140, 0.18),
-    0 0 64px rgba(160, 120, 255, 0.08),
-    inset 0 0 24px rgba(0, 0, 0, 0.5);
-  animation: listen-breathe 1.5s var(--ease) infinite;
+    0 0 28px rgba(120, 120, 140, 0.12),
+    0 0 56px rgba(160, 140, 255, 0.06),
+    inset 0 0 18px rgba(0, 0, 0, 0.6);
+  animation: listen-breathe 1.6s var(--ease) infinite;
 }
 @keyframes listen-breathe {
   0%, 100% { transform: scale(1); }
-  50% { transform: scale(1.06); }
+  50% { transform: scale(1.05); }
 }
-#orb-compact.listening #orb-glow {
-  filter: blur(20px);
+#orb-compact.listening #orb-bloom {
+  filter: blur(24px);
   animation: sweep-arc 3s linear infinite;
 }
-#orb-compact.thinking #orb-core::before {
-  animation: sweep-arc 1.5s linear infinite;
+#orb-compact.listening #orb-rim {
+  animation: rim-shift 2s var(--ease) infinite;
 }
-#orb-compact.thinking #orb-core::after {
-  animation: sweep-arc 2.5s linear infinite reverse;
+#orb-compact.thinking #orb-caustic {
+  animation: sweep-arc 1.8s linear infinite;
+}
+#orb-compact.thinking #orb-caustic-2 {
+  animation: sweep-arc 3s linear infinite reverse;
 }
 #orb-compact.responding #orb-core {
   box-shadow:
-    0 0 40px rgba(160, 120, 255, 0.15),
-    0 0 80px rgba(80, 200, 255, 0.10),
-    0 0 120px rgba(120, 255, 180, 0.06),
-    inset 0 0 24px rgba(0, 0, 0, 0.5);
+    0 0 36px rgba(160, 140, 255, 0.10),
+    0 0 72px rgba(100, 200, 255, 0.06),
+    0 0 110px rgba(140, 255, 200, 0.04),
+    inset 0 0 18px rgba(0, 0, 0, 0.55);
 }
-#orb-compact:hover #orb-stage { transform: scale(1.06); }
+#orb-compact:hover #orb-stage { transform: scale(1.05); }
 
 /* ═══════════════════════════════════════════════════════════════
    FULLSCREEN MODE — Siri-style conversation

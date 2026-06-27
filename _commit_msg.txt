@@ -1,0 +1,35 @@
+Glass sphere orb — caustic rim, internal refraction, surface highlight
+
+Redesigned the compact orb as a true volumetric glass sphere with
+multiple depth layers simulating light refraction through glass.
+
+New HTML structure (6 layers):
+  #orb-bloom       — soft outer spectral glow (conic gradient, 20px blur)
+  #orb-outer-ring  — 1px subtle white ring, breathing
+  #orb-rim         — bright caustic rim (light concentrating at edge)
+  #orb-core        — dark glass sphere body with volumetric depth:
+                     top-left surface reflection, edge light, dark center
+    #orb-caustic   — internal spectral caustic (refracted rainbow light
+                     sweeping inside the sphere, 6s rotation)
+    #orb-caustic-2 — secondary faint caustic for depth (9s, reverse)
+  #orb-reflection  — sharp glossy surface highlight (crisp white ellipse)
+  #orb-shimmer     — soft secondary reflection
+
+Key effects:
+  - Caustic rim: radial-gradient ring near edge at 80-92% radius,
+    white → blue-tinted glow, simulating light bending at sphere edge
+  - Glass body: multiple overlapping radial gradients creating
+    3D depth — dark center, subtle edge light, top-left reflection
+  - Internal caustics: conic-gradient spectral arc inside the sphere,
+    mix-blend-mode: screen, blurred 4px, sweeping across the surface
+  - Surface reflection: sharp white ellipse on top-left, 1.5px blur,
+    slowly shifting position for realism
+
+Colors: very soft spectral (6-22% opacity) with heavy blur — the
+translucent, dream-like quality of light passing through dark glass.
+
+Build: 0 warnings, 0 errors
+
+Generated with [Devin](https://devin.ai)
+
+Co-Authored-By: Devin <158243242+devin-ai-integration[bot]@users.noreply.github.com>
