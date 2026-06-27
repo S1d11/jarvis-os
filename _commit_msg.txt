@@ -1,0 +1,44 @@
+Orb is now a raw Win32 HWND — zero WPF dependency on the overlay path
+
+The orb overlay is no longer a WPF Window. It's a pure Win32 window
+created via CreateWindowEx on a dedicated STA thread with its own
+message pump. WebView2 is hosted directly via CoreWebView2Controller
+(the COM controller), not through the WPF WebView2 wrapper.
+
+Removed:
+- OrbWindow.xaml (WPF Window)
+- OrbWindow.xaml.cs (WPF code-behind with Dispatcher.Invoke)
+
+New:
+- NativeOrbWindow.cs — raw Win32 overlay:
+  - RegisterClassEx + CreateWindowEx on a dedicated thread
+  - Custom WndProc with its own GetMessage/TranslateMessage/DispatchMessage loop
+  - WS_POPUP | WS_CLIPSIBLINGS | WS_CLIPCHILDREN (no chrome at all)
+  - WS_EX_LAYERED | WS_EX_TOOLWINDOW | WS_EX_NOACTIVATE | WS_EX_TOPMOST
+  - WS_EX_NOREDIRECTIONBITMAP (direct composition, no GDI redirection surface)
+  - DWMWA_EXCLUDED_FROM_PEEK (invisible to Aero Peek)
+  - WebView2 hosted via CoreWebView2Environment.CreateCoreWebView2ControllerAsync(hwnd)
+  - CoreWebView2Controller.Bounds for sizing
+  - CoreWebView2Controller.DefaultBackgroundColor = Transparent
+  - WS_EX_TRANSPARENT toggled on/off for click-through when hidden
+  - Summon/Dismiss via SetWindowPos + ShowWindow (no WPF Show/Hide)
+  - Dismiss animation timer uses System.Threading.Timer (not DispatcherTimer)
+
+- App.xaml.cs updated to use NativeOrbWindow instead of OrbWindow
+
+The orb path now has:
+  - No WPF Window class
+  - No XAML
+  - No Dispatcher.Invoke
+  - No WPF layout system
+  - No WPF message pump for the overlay
+  - Just a raw Win32 HWND + WebView2 COM controller + custom WndProc
+
+The WPF Application still runs (for the keyboard hook and wake word
+service), but the orb itself is pure Win32 on its own thread.
+
+Build: 0 warnings, 0 errors
+
+Generated with [Devin](https://devin.ai)
+
+Co-Authored-By: Devin <158243242+devin-ai-integration[bot]@users.noreply.github.com>

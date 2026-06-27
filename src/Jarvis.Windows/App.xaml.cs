@@ -8,7 +8,7 @@ namespace Jarvis.Windows;
 /// Jarvis application entry point.
 ///
 /// By default, Jarvis runs as an invisible background process:
-///   - No window
+///   - No WPF window (the orb is a raw Win32 HWND on a separate thread)
 ///   - No system tray icon
 ///   - No taskbar entry
 ///   - Not visible in Alt+Tab
@@ -17,12 +17,12 @@ namespace Jarvis.Windows;
 ///   1. Win+J (low-level keyboard hook — works even in fullscreen games)
 ///   2. "Hey Jarvis" (NAudio wake word detection)
 ///
-/// When summoned, the OrbWindow appears — a true Win32 overlay that
-/// doesn't steal focus and is invisible to window enumeration.
+/// When summoned, the NativeOrbWindow appears — a raw Win32 overlay created
+/// via CreateWindowEx, hosting WebView2 directly through its COM controller.
+/// No WPF Window, no XAML, no Dispatcher. Just a Win32 HWND.
 ///
 /// Command-line flags:
-///   --shell     Replace Explorer as the desktop shell (fullscreen)
-///   --orb       Background-only mode (default behavior, just makes it explicit)
+///   --shell     Replace Explorer as the desktop shell (fullscreen WPF window)
 ///   --no-wake   Disable wake word detection (hotkey only)
 /// </summary>
 public partial class App : WpfApplication
@@ -35,7 +35,7 @@ public partial class App : WpfApplication
             Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
             "Jarvis");
 
-    private OrbWindow? _orbWindow;
+    private NativeOrbWindow? _orbWindow;
     private LowLevelKeyboardHook? _keyboardHook;
     private WakeWordService? _wakeWord;
     private MainWindow? _mainWindow;
@@ -56,13 +56,13 @@ public partial class App : WpfApplication
             else if (arg == "--no-wake") noWake = true;
         }
 
-        // ── Create the orb window (hidden, waiting to be summoned) ──
-        _orbWindow = new OrbWindow();
+        // ── Create the native orb window (raw Win32, hidden) ────────
+        // This creates a Win32 HWND on a dedicated thread. No WPF Window.
+        _orbWindow = new NativeOrbWindow();
         _orbWindow.Dismissed += OnOrbDismissed;
         _orbWindow.OpenMainWindowRequested += OnOrbOpenMainRequested;
-        _orbWindow.Hide();
 
-        // ── Shell mode: show the full desktop ───────────────────────
+        // ── Shell mode: show the full desktop (WPF MainWindow) ──────
         if (_shellMode)
         {
             _mainWindow = new MainWindow();
@@ -70,7 +70,6 @@ public partial class App : WpfApplication
         }
 
         // ── Install low-level keyboard hook (Win+J) ─────────────────
-        // This works even when fullscreen games have exclusive input.
         _keyboardHook = new LowLevelKeyboardHook();
         _keyboardHook.SummonPressed += SummonOrb;
         _keyboardHook.EscapePressed += DismissOrb;
@@ -84,40 +83,27 @@ public partial class App : WpfApplication
             _wakeWord.Start();
         }
 
-        // That's it. No window shown, no tray icon, no UI.
-        // Jarvis is now part of Windows — invisible until summoned.
-        // The Dispatcher keeps the process alive listening for events.
+        // Jarvis is now running — invisible, part of Windows.
+        // The WPF Dispatcher keeps the process alive for the keyboard hook
+        // and wake word service. The orb runs on its own Win32 thread.
     }
 
-    /// <summary>
-    /// Summon the orb — called by Win+J or "Hey Jarvis".
-    /// This is the Siri moment: the orb appears over whatever you're doing.
-    /// </summary>
     private void SummonOrb()
     {
         _orbWindow?.Summon();
     }
 
-    /// <summary>
-    /// Dismiss the orb — called by Escape key.
-    /// </summary>
     private void DismissOrb()
     {
         _orbWindow?.Dismiss();
     }
 
-    private void OnOrbDismissed()
-    {
-        // Orb faded out — nothing to do, it's hidden
-    }
+    private void OnOrbDismissed() { /* orb faded out */ }
 
     private void OnOrbOpenMainRequested()
     {
-        // User clicked "open full view" — show the main window
         if (_mainWindow == null)
-        {
             _mainWindow = new MainWindow();
-        }
         _mainWindow.BringToFront();
     }
 
@@ -125,7 +111,7 @@ public partial class App : WpfApplication
     {
         _keyboardHook?.Dispose();
         _wakeWord?.Dispose();
-        _orbWindow?.Close();
+        _orbWindow?.Dispose();
         base.OnExit(e);
     }
 }
