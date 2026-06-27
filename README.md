@@ -2,7 +2,7 @@
 
 Jarvis is not an application. It's a system-level AI assistant woven directly into Windows — invisible until you call it.
 
-Press **Win+J** or say **"Hey Jarvis"** and a floating orb appears over whatever you're doing. Drag it anywhere on screen — it stays where you put it. Click it to expand into a chat panel. Press Escape to collapse it back to just the orb. No window, no tray icon, no Alt+Tab entry, no Start Menu shortcut. It's just there, like a part of the OS.
+Press **Win+J** or say **"Hey Jarvis"** and a floating orb appears over whatever you're doing. Drag it anywhere on screen — it stays where you put it. **Click the orb and it goes fullscreen** — the entire screen becomes Jarvis, no borders, no chrome, just a full chatbot with text and voice input. Press Escape to collapse back to the floating orb. No window, no tray icon, no Alt+Tab entry, no Start Menu shortcut. It's just there, like a part of the OS.
 
 ## How It Works
 
@@ -22,33 +22,44 @@ User presses Win+J (or says "Hey Jarvis")
 
 User clicks the orb
   └── NativeOrbWindow.Expand()
-        ├── Window resizes from 80x80 to 440x600
-        ├── Chat panel appears (glassmorphism, blur, dark theme)
-        └── Input field auto-focuses
+        ├── Window resizes from 80x80 to FULLSCREEN (entire screen)
+        ├── Jarvis chatbot appears — no borders, no chrome
+        ├── Ambient orb glow in background
+        ├── Chat feed (centered, max-width 800px)
+        ├── Input bar with text + voice toggle
+        └── Text input auto-focuses
 
-User drags the orb
+User drags the orb (compact mode)
   └── WM_NCHITTEST returns HTCAPTION → Win32 native drag
         └── Position saved to orb_position.json on release
 
-User types a request
+User types or speaks a request
   └── Bridge → ShellService / SystemControlService / ProcessService
         ├── Launch apps, run PowerShell, manage windows, control power
-        └── Return result to orb UI
+        └── Return result to chat feed
 
-User presses Escape
-  └── Collapse back to compact orb (or dismiss if already compact)
+User presses Escape (or clicks the back arrow)
+  └── Collapse back to compact floating orb at its saved position
 ```
 
-## The Floating Orb
+## Two Modes
 
-The orb is a **floating assistant** — it can be anywhere on screen:
+### Compact — the floating orb
+- Just the orb (80x80), floats anywhere on screen, always on top
+- **Drag it** anywhere — position is saved between sessions
+- **Click it** → goes fullscreen Jarvis chatbot
+- Invisible to Alt+Tab, Task View, window enumeration
 
-- **Compact mode**: Just the orb (80x80), floats anywhere, always on top
-- **Expanded mode**: Orb header + chat panel (440x600), glassmorphism dark theme
-- **Draggable**: Grab the orb (or the header in expanded mode) and drag it anywhere
-- **Position memory**: The orb remembers where you put it between sessions
-- **Click to expand**: Click the orb to open the chat panel
-- **Escape to collapse**: Press Escape to go back to just the floating orb
+### Fullscreen — the Jarvis chatbot
+- Covers the entire screen — no borders, no chrome, no title bar
+- Ambient orb glow pulsing in the background
+- Top bar: mini orb + "Jarvis" title + state label + back button
+- Chat feed: centered, max-width 800px, user/Jarvis message bubbles
+- Input bar at the bottom with:
+  - **Text mode**: Type to Jarvis (textarea + send button)
+  - **Voice mode**: Speak to Jarvis (mic icon, disables text input)
+- Toggle between text and voice with the buttons below the input
+- **Escape** or back arrow → collapse back to the floating orb
         ├── Orb fades out + shrinks
         └── Window hides — Jarvis goes back to sleep
 ```

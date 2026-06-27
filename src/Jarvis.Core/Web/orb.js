@@ -1,95 +1,71 @@
 // ═══════════════════════════════════════════════════════════════
-// Jarvis Orb — Floating assistant logic
+// Jarvis Orb — Floating orb + Fullscreen chatbot
 //
-// Compact:  just the orb, floats anywhere, draggable
-// Expanded: orb header + chat panel
-//
-// Click the orb to expand. Drag the orb to move it. Escape to collapse.
+// Compact:  80x80 floating orb, draggable, click to go fullscreen
+// Fullscreen: Full Jarvis chatbot with text + voice input
 // ═══════════════════════════════════════════════════════════════
 
 const Orb = {
   _states: ['idle', 'listening', 'thinking', 'responding'],
   _ready: false,
   _pendingSummon: false,
-  _isExpanded: false,
-  _isDragging: false,
-  _dragStarted: false,
+  _isFullscreen: false,
+  _inputMode: 'text',     // 'text' or 'voice'
   _mouseDownPos: null,
+  _dragStarted: false,
 
   init() {
     const compact = document.getElementById('orb-compact');
-    const expanded = document.getElementById('orb-expanded');
 
-    // ── Compact orb: click to expand, drag to move ──────────────
+    // ── Compact orb: click to go fullscreen, drag to move ───────
     compact.addEventListener('mousedown', (e) => {
       this._mouseDownPos = { x: e.screenX, y: e.screenY };
       this._dragStarted = false;
-      // Tell C# to start drag mode (WM_NCHITTEST → HTCAPTION)
       this._post({ action: 'orb.dragStart' });
     });
 
-    compact.addEventListener('mouseup', (e) => {
-      this._post({ action: 'orb.dragEnd' });
-      // If the mouse didn't move much, treat as click → expand
-      if (this._mouseDownPos && !this._dragStarted) {
-        const dx = Math.abs(e.screenX - this._mouseDownPos.x);
-        const dy = Math.abs(e.screenY - this._mouseDownPos.y);
-        if (dx < 5 && dy < 5) {
-          this.expand();
-        }
-      }
-      this._mouseDownPos = null;
-    });
-
-    // Track mouse movement during drag
     compact.addEventListener('mousemove', (e) => {
       if (this._mouseDownPos) {
         const dx = Math.abs(e.screenX - this._mouseDownPos.x);
         const dy = Math.abs(e.screenY - this._mouseDownPos.y);
-        if (dx > 5 || dy > 5) {
-          this._dragStarted = true;
-        }
+        if (dx > 5 || dy > 5) this._dragStarted = true;
       }
     });
 
-    // ── Expanded header: drag to move the whole window ──────────
-    const header = document.getElementById('orb-header');
-    header.addEventListener('mousedown', (e) => {
-      // Don't drag when clicking the close button
-      if (e.target.closest('#orb-close')) return;
-      this._mouseDownPos = { x: e.screenX, y: e.screenY };
-      this._post({ action: 'orb.dragStart' });
-    });
-    header.addEventListener('mouseup', () => {
+    compact.addEventListener('mouseup', (e) => {
       this._post({ action: 'orb.dragEnd' });
+      if (this._mouseDownPos && !this._dragStarted) {
+        const dx = Math.abs(e.screenX - this._mouseDownPos.x);
+        const dy = Math.abs(e.screenY - this._mouseDownPos.y);
+        if (dx < 5 && dy < 5) this.expand();
+      }
       this._mouseDownPos = null;
     });
 
-    // ── Close button (collapse) ─────────────────────────────────
-    document.getElementById('orb-close').onclick = () => this.collapse();
+    // ── Fullscreen: close button ────────────────────────────────
+    document.getElementById('fs-close').onclick = () => this.collapse();
 
-    // ── Footer buttons ──────────────────────────────────────────
-    document.getElementById('orb-full').onclick = () => this._post({ action: 'orb.openFull' });
-    document.getElementById('orb-dismiss').onclick = () => this.dismiss();
-
-    // ── Input ───────────────────────────────────────────────────
-    const input = document.getElementById('orb-input');
+    // ── Fullscreen: text input ──────────────────────────────────
+    const input = document.getElementById('fs-input');
     input.addEventListener('keydown', (e) => {
       if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); this.send(); }
       if (e.key === 'Escape') { this.collapse(); }
     });
     input.addEventListener('input', () => {
       input.style.height = 'auto';
-      input.style.height = Math.min(input.scrollHeight, 80) + 'px';
+      input.style.height = Math.min(input.scrollHeight, 120) + 'px';
     });
 
-    // ── Send button ─────────────────────────────────────────────
-    document.getElementById('orb-send').onclick = () => this.send();
+    document.getElementById('fs-send').onclick = () => this.send();
+
+    // ── Mode toggle: Voice / Type ───────────────────────────────
+    document.getElementById('fs-voice-btn').onclick = () => this.setMode('voice');
+    document.getElementById('fs-text-btn').onclick = () => this.setMode('text');
 
     // ── Welcome message ─────────────────────────────────────────
     this._addMessage('jarvis', "Hi, I'm Jarvis. How can I help?");
 
-    // ── Mark ready ──────────────────────────────────────────────
+    // ── Ready ───────────────────────────────────────────────────
     this._ready = true;
     this._post({ action: 'orb.ready' });
     if (this._pendingSummon) {
@@ -108,70 +84,95 @@ const Orb = {
   },
 
   dismiss() {
-    if (this._isExpanded) { this.collapse(); return; }
+    if (this._isFullscreen) { this.collapse(); return; }
     const compact = document.getElementById('orb-compact');
     compact.classList.add('dismissing');
     compact.classList.remove('summoned');
-    setTimeout(() => {
-      this._post({ action: 'orb.dismiss' });
-    }, 300);
+    setTimeout(() => this._post({ action: 'orb.dismiss' }), 300);
   },
 
-  // ── Expand / Collapse ──────────────────────────────────────
+  // ── Expand to fullscreen / Collapse to orb ─────────────────
   expand() {
-    if (this._isExpanded) return;
-    this._isExpanded = true;
+    if (this._isFullscreen) return;
+    this._isFullscreen = true;
     const compact = document.getElementById('orb-compact');
-    const expanded = document.getElementById('orb-expanded');
+    const fs = document.getElementById('jarvis-fullscreen');
 
     compact.classList.add('hidden');
-    expanded.classList.add('active');
-    // Force reflow then animate
-    expanded.offsetHeight;
-    expanded.classList.add('visible');
+    fs.classList.add('active');
+    fs.offsetHeight; // force reflow
+    fs.classList.add('visible');
 
     this._post({ action: 'orb.expand' });
     this.setState('listening');
 
     setTimeout(() => {
-      document.getElementById('orb-input').focus();
-    }, 300);
+      if (this._inputMode === 'text') {
+        document.getElementById('fs-input').focus();
+      }
+    }, 350);
   },
 
   collapse() {
-    if (!this._isExpanded) return;
-    this._isExpanded = false;
+    if (!this._isFullscreen) return;
+    this._isFullscreen = false;
     const compact = document.getElementById('orb-compact');
-    const expanded = document.getElementById('orb-expanded');
+    const fs = document.getElementById('jarvis-fullscreen');
 
-    expanded.classList.remove('visible');
+    fs.classList.remove('visible');
     setTimeout(() => {
-      expanded.classList.remove('active');
+      fs.classList.remove('active');
       compact.classList.remove('hidden');
     }, 250);
 
     this._post({ action: 'orb.collapse' });
   },
 
+  // ── Input mode: text or voice ──────────────────────────────
+  setMode(mode) {
+    this._inputMode = mode;
+    const voiceBtn = document.getElementById('fs-voice-btn');
+    const textBtn = document.getElementById('fs-text-btn');
+    const input = document.getElementById('fs-input');
+    const sendBtn = document.getElementById('fs-send');
+    const wrap = document.getElementById('fs-input-wrap');
+
+    if (mode === 'voice') {
+      voiceBtn.classList.add('active');
+      textBtn.classList.remove('active');
+      input.placeholder = 'Voice mode — speak to Jarvis…';
+      input.disabled = true;
+      sendBtn.style.opacity = '0.4';
+      sendBtn.style.pointerEvents = 'none';
+      this._post({ action: 'voice.start' });
+    } else {
+      textBtn.classList.add('active');
+      voiceBtn.classList.remove('active');
+      input.placeholder = 'Type to Jarvis…';
+      input.disabled = false;
+      sendBtn.style.opacity = '1';
+      sendBtn.style.pointerEvents = 'auto';
+      input.focus();
+      this._post({ action: 'voice.stop' });
+    }
+  },
+
   // ── State ──────────────────────────────────────────────────
   setState(state) {
     const compact = document.getElementById('orb-compact');
-    const label = document.getElementById('orb-state-label');
+    const label = document.getElementById('fs-state-label');
     this._states.forEach(s => compact.classList.remove(s));
     if (this._states.includes(state)) compact.classList.add(state);
 
     const labels = {
-      idle: '',
-      listening: 'Listening…',
-      thinking: 'Thinking…',
-      responding: 'Responding…',
+      idle: '', listening: 'Listening…', thinking: 'Thinking…', responding: 'Responding…',
     };
     if (label) label.textContent = labels[state] || '';
   },
 
   // ── Send message ───────────────────────────────────────────
   send() {
-    const input = document.getElementById('orb-input');
+    const input = document.getElementById('fs-input');
     const text = input.value.trim();
     if (!text) return;
 
@@ -181,13 +182,12 @@ const Orb = {
 
     this._addTyping();
     this.setState('thinking');
-
     this._post({ action: 'chat.send', message: text });
   },
 
   // ── Message helpers ────────────────────────────────────────
   _addMessage(role, text) {
-    const feed = document.getElementById('orb-chat-feed');
+    const feed = document.getElementById('fs-chat-feed');
     const div = document.createElement('div');
     div.className = `msg ${role}`;
     div.textContent = text;
@@ -197,7 +197,7 @@ const Orb = {
   },
 
   _addTyping() {
-    const feed = document.getElementById('orb-chat-feed');
+    const feed = document.getElementById('fs-chat-feed');
     const div = document.createElement('div');
     div.className = 'msg jarvis typing-indicator';
     div.innerHTML = '<div class="typing-dots"><span></span><span></span><span></span></div>';
@@ -215,23 +215,14 @@ const Orb = {
   // ── Incoming events from C# ────────────────────────────────
   onEvent(event, data) {
     switch (event) {
-      case 'summon':
-        this.summon();
-        break;
-      case 'dismiss':
-        this.dismiss();
-        break;
-      case 'expanded':
-        // C# confirmed the window resized
-        break;
-      case 'collapsed':
-        // C# confirmed the window resized
-        break;
+      case 'summon': this.summon(); break;
+      case 'dismiss': this.dismiss(); break;
+      case 'expanded': break;  // C# confirmed fullscreen resize
+      case 'collapsed': break; // C# confirmed compact resize
       case 'state':
         if (data && data.state) this.setState(data.state);
         break;
       case 'chat.response':
-        // Remove typing indicator
         const typing = document.querySelector('.typing-indicator');
         if (typing) typing.remove();
         this._addMessage('jarvis', data?.text || data?.message || '');
@@ -248,10 +239,8 @@ const Orb = {
   },
 };
 
-// ── Boot ──────────────────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', () => Orb.init());
 
-// ── Receive messages from C# ──────────────────────────────────
 window.chrome?.webview?.addEventListener('message', (e) => {
   try {
     const msg = JSON.parse(e.data);

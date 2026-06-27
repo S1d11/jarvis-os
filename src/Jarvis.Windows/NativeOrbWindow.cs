@@ -169,8 +169,7 @@ public sealed class NativeOrbWindow : IBridgeHost, IDisposable
     // ── Sizes ─────────────────────────────────────────────────
     private const int CompactW = 80;
     private const int CompactH = 80;
-    private const int ExpandedW = 440;
-    private const int ExpandedH = 600;
+    // Fullscreen mode uses the actual screen dimensions (computed at expand time)
 
     // ── State ─────────────────────────────────────────────────
     private IntPtr _hwnd;
@@ -194,6 +193,7 @@ public sealed class NativeOrbWindow : IBridgeHost, IDisposable
 
     public event Action? Dismissed;
     public event Action? OpenMainWindowRequested;
+    public event Action<bool>? VoiceModeChanged;
 
     public NativeOrbWindow()
     {
@@ -484,6 +484,14 @@ public sealed class NativeOrbWindow : IBridgeHost, IDisposable
                         SavePosition(_currentX, _currentY);
                     }
                     return;
+
+                case "voice.start":
+                    VoiceModeChanged?.Invoke(true);
+                    return;
+
+                case "voice.stop":
+                    VoiceModeChanged?.Invoke(false);
+                    return;
             }
 
             await _bridge.HandleMessageAsync(json);
@@ -497,49 +505,35 @@ public sealed class NativeOrbWindow : IBridgeHost, IDisposable
     // ── Expand / Collapse ─────────────────────────────────────
 
     /// <summary>
-    /// Expand from compact orb to full chat panel.
-    /// The window resizes and repositions so the orb stays in place
-    /// and the chat panel opens below or above it.
+    /// Expand from compact orb to fullscreen Jarvis chatbot.
+    /// The window covers the entire screen — no borders, no chrome.
     /// </summary>
     private void Expand()
     {
         if (_isExpanded || _hwnd == IntPtr.Zero) return;
         _isExpanded = true;
 
-        // Keep the orb centered horizontally; open panel below
-        int x = _currentX - (ExpandedW - CompactW) / 2;
-        int y = _currentY;
-
-        // If the panel would go off the bottom of the screen, open upward
+        // Fullscreen — cover the entire primary screen
         var screen = System.Windows.SystemParameters.WorkArea;
-        if (y + ExpandedH > screen.Height)
-        {
-            y = (int)screen.Height - ExpandedH - 10;
-        }
-        // Clamp horizontally
-        x = Math.Clamp(x, 8, (int)screen.Width - ExpandedW - 8);
+        int fw = (int)screen.Width;
+        int fh = (int)screen.Height;
 
-        SetWindowPos(_hwnd, (IntPtr)HWND_TOPMOST, x, y, ExpandedW, ExpandedH,
+        SetWindowPos(_hwnd, (IntPtr)HWND_TOPMOST, 0, 0, fw, fh,
             SWP_NOACTIVATE | SWP_SHOWWINDOW);
 
         PostMessage(System.Text.Json.JsonSerializer.Serialize(new { @event = "expanded" }));
     }
 
     /// <summary>
-    /// Collapse back to just the floating orb.
+    /// Collapse back to just the floating orb at its saved position.
     /// </summary>
     private void Collapse()
     {
         if (!_isExpanded || _hwnd == IntPtr.Zero) return;
         _isExpanded = false;
 
-        // Return to compact size, keeping the orb position
-        // The orb is at the top-center of the expanded panel
-        int orbX = _currentX;
-        int orbY = _currentY;
-
-        SetWindowPos(_hwnd, (IntPtr)HWND_TOPMOST, orbX, orbY, CompactW, CompactH,
-            SWP_NOACTIVATE | SWP_SHOWWINDOW);
+        SetWindowPos(_hwnd, (IntPtr)HWND_TOPMOST, _currentX, _currentY,
+            CompactW, CompactH, SWP_NOACTIVATE | SWP_SHOWWINDOW);
 
         PostMessage(System.Text.Json.JsonSerializer.Serialize(new { @event = "collapsed" }));
     }
@@ -554,11 +548,20 @@ public sealed class NativeOrbWindow : IBridgeHost, IDisposable
             return;
         }
 
-        // Show the window (in compact mode) at its saved position
-        SetWindowPos(_hwnd, (IntPtr)HWND_TOPMOST, _currentX, _currentY,
-            _isExpanded ? ExpandedW : CompactW,
-            _isExpanded ? ExpandedH : CompactH,
-            SWP_NOACTIVATE | SWP_SHOWWINDOW);
+        if (_isExpanded)
+        {
+            // Already in fullscreen — just make sure it's visible
+            var screen = System.Windows.SystemParameters.WorkArea;
+            SetWindowPos(_hwnd, (IntPtr)HWND_TOPMOST, 0, 0,
+                (int)screen.Width, (int)screen.Height,
+                SWP_NOACTIVATE | SWP_SHOWWINDOW);
+        }
+        else
+        {
+            // Compact orb at saved position
+            SetWindowPos(_hwnd, (IntPtr)HWND_TOPMOST, _currentX, _currentY,
+                CompactW, CompactH, SWP_NOACTIVATE | SWP_SHOWWINDOW);
+        }
 
         PostMessage(System.Text.Json.JsonSerializer.Serialize(new { @event = "summon" }));
     }
