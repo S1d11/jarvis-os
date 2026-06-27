@@ -1,0 +1,34 @@
+Siri spectral orb — dark sphere with sweeping rainbow arc
+
+Redesigned the orb to match the Siri spectral light aesthetic from
+the reference image: a dark glossy sphere with a soft, sweeping
+rainbow light arc moving across its surface.
+
+Compact orb:
+  - Dark sphere: radial gradients from dark grey center to black edge
+  - Spectral arc (::before): conic gradient with soft spectral colors
+    (red → orange/yellow → green → blue → purple) sweeping across
+    the sphere surface, 5s rotation, 5px blur for ethereal softness
+  - Secondary arc (::after): fainter, slower (8s), adds depth
+  - Glossy shimmer: white ellipse reflection that drifts subtly
+  - Outer bloom: large blurred conic gradient, very faint (2-4% opacity)
+  - Subtle ring: 1px white border at 4-6% opacity, pulsing
+  - All state animations (listen, think, respond) enhance the glow
+
+Fullscreen:
+  - Large spectral ambient glow behind conversation, 60px blur,
+    same color progression, 20s slow rotation
+  - Removed the old multi-color ring animations
+
+Color progression (spectral arc):
+  rgba(255,100,100) → rgba(255,200,80) → rgba(200,255,120)
+  → rgba(80,220,255) → rgba(160,120,255)
+
+All colors are very soft (6-22% opacity) with heavy blur — the
+ethereal, dream-like quality of the real Siri orb.
+
+Build: 0 warnings, 0 errors
+
+Generated with [Devin](https://devin.ai)
+
+Co-Authored-By: Devin <158243242+devin-ai-integration[bot]@users.noreply.github.com>
