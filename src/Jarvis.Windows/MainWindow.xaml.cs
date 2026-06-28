@@ -6,7 +6,6 @@ using Jarvis.Core.Shell;
 using Jarvis.Core.Services;
 using Microsoft.Web.WebView2.Core;
 using System.Windows;
-using System.Windows.Controls;
 using WpfMessageBox = System.Windows.MessageBox;
 
 namespace Jarvis.Windows;
@@ -14,13 +13,19 @@ namespace Jarvis.Windows;
 /// <summary>
 /// The full Jarvis desktop shell window. Only shown in --shell mode
 /// (when replacing Explorer). In normal background mode, this window
-/// is not created — only the OrbWindow is used.
+/// is not created — only the NativeOrbWindow is used.
+///
+/// In shell mode:
+///   - Boots fullscreen (no borders, no chrome, no taskbar)
+///   - Close button (X) hides to background, doesn't exit
+///   - Win+J toggles the assistant panel
 /// </summary>
 public partial class MainWindow : Window, IBridgeHost
 {
     private readonly Bridge _bridge;
     private readonly WindowsSystemAccess _sys;
     private readonly WindowService _winSvc;
+    private bool _closeRequested;
 
     public MainWindow()
     {
@@ -47,13 +52,15 @@ public partial class MainWindow : Window, IBridgeHost
         }
 
         EnableDarkTitleBar();
+    }
 
-        // Shell mode: maximize to fill the screen
-        if (Properties.Settings.Default.ShellMode)
+    /// <summary>Close hides the window instead of exiting the app.</summary>
+    private void Window_Closing(object sender, System.ComponentModel.CancelEventArgs e)
+    {
+        if (!_closeRequested)
         {
-            WindowState = WindowState.Maximized;
-            WindowStyle = WindowStyle.None;
-            ResizeMode = ResizeMode.NoResize;
+            e.Cancel = true;
+            Hide();
         }
     }
 
@@ -152,18 +159,61 @@ public partial class MainWindow : Window, IBridgeHost
     });
     public void SetZoom(double z) => Dispatcher.Invoke(() => WebView.ZoomFactor = z);
 
+    /// <summary>Show the shell window (called from keyboard hook).</summary>
+    public void ShowShell()
+    {
+        Dispatcher.Invoke(() =>
+        {
+            Show();
+            WindowState = WindowState.Maximized;
+            Activate();
+            Topmost = true;
+            Topmost = false; // Flash then release
+        });
+    }
+
+    /// <summary>Hide the shell window to background (called from keyboard hook).</summary>
+    public void HideShell()
+    {
+        Dispatcher.Invoke(() =>
+        {
+            Hide();
+        });
+    }
+
+    /// <summary>True fullscreen kiosk — called when entering shell mode.</summary>
+    public void EnterKiosk()
+    {
+        Dispatcher.Invoke(() =>
+        {
+            WindowStyle = WindowStyle.None;
+            ResizeMode = ResizeMode.NoResize;
+            WindowState = WindowState.Maximized;
+            Show();
+            Activate();
+        });
+    }
+
+    /// <summary>Force close (for uninstall / shutdown).</summary>
     public void BringToFront()
     {
         Dispatcher.Invoke(() =>
         {
             Show();
-            WindowState = WindowState.Normal;
+            WindowState = WindowState.Maximized;
             Activate();
         });
     }
 
     public void CloseApp()
     {
+        _closeRequested = true;
+        Dispatcher.Invoke(() => Close());
+    }
+
+    public void ForceClose()
+    {
+        _closeRequested = true;
         Dispatcher.Invoke(() => Close());
     }
 }

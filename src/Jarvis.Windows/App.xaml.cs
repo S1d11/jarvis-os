@@ -40,10 +40,16 @@ public partial class App : WpfApplication
     private WakeWordService? _wakeWord;
     private MainWindow? _mainWindow;
     private bool _shellMode;
+    private bool _mainWindowVisible;
 
     protected override void OnStartup(System.Windows.StartupEventArgs e)
     {
         base.OnStartup(e);
+
+        // Prevent WPF from shutting down when the last window closes.
+        // In background mode there are no WPF windows — the process stays
+        // alive for the keyboard hook and wake word service.
+        ShutdownMode = ShutdownMode.OnExplicitShutdown;
 
         // Create data directory
         System.IO.Directory.CreateDirectory(DataDir);
@@ -57,7 +63,6 @@ public partial class App : WpfApplication
         }
 
         // ── Create the native orb window (raw Win32, hidden) ────────
-        // This creates a Win32 HWND on a dedicated thread. No WPF Window.
         _orbWindow = new NativeOrbWindow();
         _orbWindow.Dismissed += OnOrbDismissed;
         _orbWindow.OpenMainWindowRequested += OnOrbOpenMainRequested;
@@ -66,45 +71,80 @@ public partial class App : WpfApplication
         if (_shellMode)
         {
             _mainWindow = new MainWindow();
-            _mainWindow.Show();
+            _mainWindow.EnterKiosk();
+            _mainWindowVisible = true;
         }
 
         // ── Install low-level keyboard hook (Win+J) ─────────────────
         _keyboardHook = new LowLevelKeyboardHook();
-        _keyboardHook.SummonPressed += SummonOrb;
-        _keyboardHook.EscapePressed += DismissOrb;
+        _keyboardHook.SummonPressed += OnSummonPressed;
+        _keyboardHook.EscapePressed += OnEscapePressed;
         _keyboardHook.Install();
 
         // ── Start wake word detection ("Hey Jarvis") ────────────────
         if (!noWake)
         {
             _wakeWord = new WakeWordService();
-            _wakeWord.WakeWordDetected += SummonOrb;
+            _wakeWord.WakeWordDetected += OnSummonPressed;
             _wakeWord.Start();
         }
-
-        // Jarvis is now running — invisible, part of Windows.
-        // The WPF Dispatcher keeps the process alive for the keyboard hook
-        // and wake word service. The orb runs on its own Win32 thread.
     }
 
-    private void SummonOrb()
+    /// <summary>Win+J or "Hey Jarvis" pressed.</summary>
+    private void OnSummonPressed()
     {
-        _orbWindow?.Summon();
+        if (_shellMode && _mainWindow != null)
+        {
+            // In shell mode: toggle the assistant panel via the shell UI
+            ToggleAssistantPanel();
+        }
+        else
+        {
+            // Background mode: summon the floating orb
+            _orbWindow?.Summon();
+        }
     }
 
-    private void DismissOrb()
+    /// <summary>Escape pressed.</summary>
+    private void OnEscapePressed()
     {
-        _orbWindow?.Dismiss();
+        if (_shellMode && _mainWindow != null && _mainWindowVisible)
+        {
+            // In shell mode: hide the assistant / shell window
+            _mainWindow.HideShell();
+            _mainWindowVisible = false;
+        }
+        else
+        {
+            // Background mode: dismiss the floating orb
+            _orbWindow?.Dismiss();
+        }
+    }
+
+    private void ToggleAssistantPanel()
+    {
+        if (_mainWindow == null) return;
+        if (_mainWindowVisible)
+        {
+            _mainWindow.HideShell();
+            _mainWindowVisible = false;
+        }
+        else
+        {
+            _mainWindow.ShowShell();
+            _mainWindowVisible = true;
+        }
     }
 
     private void OnOrbDismissed() { /* orb faded out */ }
 
     private void OnOrbOpenMainRequested()
     {
+        // In background mode, clicking the orb opens the shell window
         if (_mainWindow == null)
             _mainWindow = new MainWindow();
-        _mainWindow.BringToFront();
+        _mainWindow.ShowShell();
+        _mainWindowVisible = true;
     }
 
     protected override void OnExit(ExitEventArgs e)
