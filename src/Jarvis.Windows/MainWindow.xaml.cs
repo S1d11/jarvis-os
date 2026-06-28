@@ -11,14 +11,15 @@ using WpfMessageBox = System.Windows.MessageBox;
 namespace Jarvis.Windows;
 
 /// <summary>
-/// The full Jarvis desktop shell window. Only shown in --shell mode
-/// (when replacing Explorer). In normal background mode, this window
-/// is not created — only the NativeOrbWindow is used.
+/// The Siri-style assistant overlay window.
 ///
-/// In shell mode:
-///   - Boots fullscreen (no borders, no chrome, no taskbar)
-///   - Close button (X) hides to background, doesn't exit
-///   - Win+J toggles the assistant panel
+/// Transparent, borderless, always-on-top. Covers the entire screen
+/// so it can catch clicks outside the UI area to dismiss itself.
+/// The HTML/CSS renders the actual UI (centered input bar + chat).
+/// The rest of the window is transparent, showing your desktop behind it.
+///
+/// This is NOT a shell replacement. It coexists with Explorer,
+/// appearing over whatever you're doing like Spotlight or Siri.
 /// </summary>
 public partial class MainWindow : Window, IBridgeHost
 {
@@ -26,6 +27,9 @@ public partial class MainWindow : Window, IBridgeHost
     private readonly WindowsSystemAccess _sys;
     private readonly WindowService _winSvc;
     private bool _closeRequested;
+
+    /// <summary>Fired when the user dismisses the overlay (Escape or click-outside).</summary>
+    public event Action? OverlayDismissed;
 
     public MainWindow()
     {
@@ -54,13 +58,24 @@ public partial class MainWindow : Window, IBridgeHost
         EnableDarkTitleBar();
     }
 
-    /// <summary>Close hides the window instead of exiting the app.</summary>
+    /// <summary>Clicking the transparent background dismisses the overlay.
+    /// The WebView2 handles clicks inside the UI area.</summary>
+    private void Window_MouseDown(object sender, System.Windows.Input.MouseButtonEventArgs e)
+    {
+        // Only dismiss on left-click. Let right-click pass through.
+        if (e.ChangedButton == System.Windows.Input.MouseButton.Left)
+        {
+            HideOverlay();
+        }
+    }
+
+    /// <summary>Closing hides instead of exiting.</summary>
     private void Window_Closing(object sender, System.ComponentModel.CancelEventArgs e)
     {
         if (!_closeRequested)
         {
             e.Cancel = true;
-            Hide();
+            HideOverlay();
         }
     }
 
@@ -86,10 +101,10 @@ public partial class MainWindow : Window, IBridgeHost
         var webRoot = ExtractWebAssets();
         core.SetVirtualHostNameToFolderMapping("jarvis.app", webRoot,
             CoreWebView2HostResourceAccessKind.Allow);
-        core.Settings.AreDevToolsEnabled = true;
-        core.Settings.AreDefaultContextMenusEnabled = true;
+        core.Settings.AreDevToolsEnabled = false;
+        core.Settings.AreDefaultContextMenusEnabled = false;
         core.Settings.IsStatusBarEnabled = false;
-        core.Settings.IsZoomControlEnabled = true;
+        core.Settings.IsZoomControlEnabled = false;
         core.Settings.UserAgent = "Jarvis/1.0 (Windows)";
 
         core.WebMessageReceived += OnWebMessageReceived;
@@ -116,9 +131,7 @@ public partial class MainWindow : Window, IBridgeHost
         while ((line = sr.ReadLine()) != null)
         {
             if (string.IsNullOrWhiteSpace(line)) continue;
-            var relPath = line.Trim(); // e.g. "Web/orb.html"
-
-            // Strip the leading "Web/" — the resource prefix already includes it
+            var relPath = line.Trim();
             var filePart = relPath.StartsWith("Web/", StringComparison.OrdinalIgnoreCase)
                 ? relPath["Web/".Length..]
                 : relPath;
@@ -139,6 +152,14 @@ public partial class MainWindow : Window, IBridgeHost
         try
         {
             var json = e.TryGetWebMessageAsString();
+
+            // Intercept overlay-specific messages before routing to the bridge
+            if (json.Contains("\"action\":\"overlay.dismiss\""))
+            {
+                HideOverlay();
+                return;
+            }
+
             await _bridge.HandleMessageAsync(json);
         }
         catch (Exception ex)
@@ -147,7 +168,39 @@ public partial class MainWindow : Window, IBridgeHost
         }
     }
 
-    // ── IBridgeHost ──────────────────────────────────────────
+    // ── Overlay lifecycle ──────────────────────────────────────
+
+    /// <summary>Show the overlay (called from keyboard hook or orb click).</summary>
+    public void ShowOverlay()
+    {
+        Dispatcher.Invoke(() =>
+        {
+            Show();
+            Activate();
+            // Slight flash of topmost then release so it grabs focus
+            // but doesn't permanently block other windows
+            Topmost = true;
+        });
+    }
+
+    /// <summary>Hide the overlay back to background.</summary>
+    public void HideOverlay()
+    {
+        Dispatcher.Invoke(() =>
+        {
+            Hide();
+            OverlayDismissed?.Invoke();
+        });
+    }
+
+    /// <summary>Force close (for app shutdown / uninstall).</summary>
+    public void ForceClose()
+    {
+        _closeRequested = true;
+        Dispatcher.Invoke(() => Close());
+    }
+
+    // ── IBridgeHost ────────────────────────────────────────────
     public void PostMessage(string json) => Dispatcher.Invoke(() =>
         WebView.CoreWebView2?.PostWebMessageAsJson(json));
 
@@ -159,61 +212,7 @@ public partial class MainWindow : Window, IBridgeHost
     });
     public void SetZoom(double z) => Dispatcher.Invoke(() => WebView.ZoomFactor = z);
 
-    /// <summary>Show the shell window (called from keyboard hook).</summary>
-    public void ShowShell()
-    {
-        Dispatcher.Invoke(() =>
-        {
-            Show();
-            WindowState = WindowState.Maximized;
-            Activate();
-            Topmost = true;
-            Topmost = false; // Flash then release
-        });
-    }
+    public void BringToFront() => ShowOverlay();
 
-    /// <summary>Hide the shell window to background (called from keyboard hook).</summary>
-    public void HideShell()
-    {
-        Dispatcher.Invoke(() =>
-        {
-            Hide();
-        });
-    }
-
-    /// <summary>True fullscreen kiosk — called when entering shell mode.</summary>
-    public void EnterKiosk()
-    {
-        Dispatcher.Invoke(() =>
-        {
-            WindowStyle = WindowStyle.None;
-            ResizeMode = ResizeMode.NoResize;
-            WindowState = WindowState.Maximized;
-            Show();
-            Activate();
-        });
-    }
-
-    /// <summary>Force close (for uninstall / shutdown).</summary>
-    public void BringToFront()
-    {
-        Dispatcher.Invoke(() =>
-        {
-            Show();
-            WindowState = WindowState.Maximized;
-            Activate();
-        });
-    }
-
-    public void CloseApp()
-    {
-        _closeRequested = true;
-        Dispatcher.Invoke(() => Close());
-    }
-
-    public void ForceClose()
-    {
-        _closeRequested = true;
-        Dispatcher.Invoke(() => Close());
-    }
+    public void CloseApp() => HideOverlay();
 }

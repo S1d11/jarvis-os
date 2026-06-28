@@ -4,15 +4,19 @@
         xmlns:wv2="clr-namespace:Microsoft.Web.WebView2.Wpf;assembly=Microsoft.Web.WebView2.Wpf"
         Title="Jarvis"
         WindowStyle="None"
+        AllowsTransparency="True"
+        Background="Transparent"
         ResizeMode="NoResize"
         WindowState="Maximized"
         WindowStartupLocation="CenterScreen"
-        Background="#0E0E11"
+        ShowInTaskbar="False"
+        Topmost="True"
         UseLayoutRounding="True"
         SnapsToDevicePixels="True"
         Loaded="Window_Loaded"
+        MouseDown="Window_MouseDown"
         Closing="Window_Closing">
     <Grid>
-        <wv2:WebView2 x:Name="WebView" DefaultBackgroundColor="#0E0E11"/>
+        <wv2:WebView2 x:Name="WebView" DefaultBackgroundColor="Transparent"/>
     </Grid>
 </Window>

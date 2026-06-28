@@ -7,87 +7,21 @@
   <link rel="stylesheet" href="styles.css">
 </head>
 <body>
-  <div id="jarvis-shell">
+  <div id="jarvis-overlay">
 
-    <!-- ═══ Top Bar — centered items ══════════════════════════════ -->
-    <div id="topbar">
-      <div id="topbar-center">
-        <div id="start-button" class="topbar-item" title="Apps">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <rect x="3" y="3" width="7" height="7" rx="1.5"/>
-            <rect x="14" y="3" width="7" height="7" rx="1.5"/>
-            <rect x="3" y="14" width="7" height="7" rx="1.5"/>
-            <rect x="14" y="14" width="7" height="7" rx="1.5"/>
-          </svg>
-        </div>
-        <div id="clock-widget" class="topbar-item" title="Quick Settings">
-          <span id="clock-time">00:00</span>
-          <span id="clock-date">—</span>
-        </div>
-        <div id="quick-settings-button" class="topbar-item" title="Quick Settings">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M12 3v2M12 19v2M5.6 5.6l1.4 1.4M17 17l1.4 1.4M3 12h2M19 12h2M5.6 18.4l1.4-1.4M17 7l1.4-1.4"/>
-            <circle cx="12" cy="12" r="3.5"/>
-          </svg>
-        </div>
-        <div id="power-button" class="topbar-item" title="Power">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M12 4v8"/>
-            <path d="M7.5 7a7 7 0 1 0 9 0"/>
-          </svg>
-        </div>
-      </div>
-    </div>
+    <!-- ═══ Centered Assistant UI ═══════════════════════════════ -->
+    <div id="assistant-container">
 
-    <!-- ═══ Desktop Area ══════════════════════════════════════════ -->
-    <div id="desktop">
-      <div id="widget-layer"></div>
-      <div id="window-container"></div>
-    </div>
-
-    <!-- ═══ Bottom Dock — centered orb + grid ═════════════════════ -->
-    <div id="dock-container">
-      <div id="dock">
-        <div class="dock-item dock-orb-wrapper" id="orb-trigger" title="Jarvis">
-          <!-- Glass sphere orb — simplified for dock size -->
-          <div class="dock-orb">
-            <div class="dock-orb-core"></div>
-            <div class="dock-orb-caustic"></div>
-            <div class="dock-orb-reflection"></div>
-          </div>
-        </div>
-        <div class="dock-item" id="app-grid-trigger" title="All Apps">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <circle cx="5" cy="5" r="1.5"/><circle cx="12" cy="5" r="1.5"/><circle cx="19" cy="5" r="1.5"/>
-            <circle cx="5" cy="12" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="19" cy="12" r="1.5"/>
-            <circle cx="5" cy="19" r="1.5"/><circle cx="12" cy="19" r="1.5"/><circle cx="19" cy="19" r="1.5"/>
-          </svg>
-        </div>
-      </div>
-    </div>
-
-    <!-- ═══ Fullscreen Assistant / Chat Overlay ═══════════════════ -->
-    <div id="assistant-overlay" class="hidden">
-      <!-- Close button -->
-      <button id="assistant-close" title="Close">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round">
-          <path d="M6 6l12 12M6 18L18 6"/>
-        </svg>
-      </button>
-
-      <!-- Chat messages area -->
-      <div id="chat-feed"></div>
-
-      <!-- Bottom input bar — same place as the dock -->
-      <div id="chat-input-bar">
-        <button id="chat-sparkle" class="chat-bar-btn" title="Sparkle">
+      <!-- Input bar -->
+      <div id="input-bar">
+        <button id="btn-sparkle" class="bar-btn" title="Sparkle">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
             <path d="M12 2l1.5 4.5L18 8l-4.5 1.5L12 14l-1.5-4.5L6 8l4.5-1.5z"/>
             <path d="M5 16l1 3 3 1-3 1-1 3-1-3-3-1 3-1z"/>
           </svg>
         </button>
-        <textarea id="chat-input" placeholder="Ask Jarvis anything..." rows="1"></textarea>
-        <button id="chat-mic" class="chat-bar-btn" title="Voice input">
+        <input id="chat-input" type="text" placeholder="Ask Jarvis anything..." autocomplete="off" />
+        <button id="btn-mic" class="bar-btn" title="Voice input">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
             <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3z"/>
             <path d="M19 10v2a7 7 0 0 1-14 0v-2"/>
@@ -95,73 +29,65 @@
             <line x1="8" y1="23" x2="16" y2="23"/>
           </svg>
         </button>
-        <button id="chat-send" class="chat-bar-btn" title="Send">
+        <button id="btn-send" class="bar-btn" title="Send">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
             <line x1="22" y1="2" x2="11" y2="13"/>
             <polygon points="22 2 15 22 11 13 2 9 22 2"/>
           </svg>
         </button>
       </div>
-    </div>
 
-    <!-- ═══ Quick Settings Panel ══════════════════════════════════ -->
-    <div id="quick-settings" class="panel hidden">
-      <div class="qs-tiles">
-        <div class="qs-tile" id="qs-wifi">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <!-- Conversation area -->
+      <div id="conversation"></div>
+
+      <!-- Quick toggles (shown when no conversation) -->
+      <div id="quick-toggles">
+        <button class="toggle-btn" data-action="wifi">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <path d="M5 12.5a10 10 0 0 1 14 0M8 15.5a6 6 0 0 1 8 0M11 18.5a2 2 0 0 1 2 0"/>
           </svg>
           <span>Wi-Fi</span>
-        </div>
-        <div class="qs-tile" id="qs-bluetooth">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        </button>
+        <button class="toggle-btn" data-action="bluetooth">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <polyline points="6.5 6.5 17.5 17.5 12 23 12 1 17.5 6.5 6.5 17.5"/>
           </svg>
           <span>Bluetooth</span>
-        </div>
-        <div class="qs-tile" id="qs-airplane">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        </button>
+        <button class="toggle-btn" data-action="airplane">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <path d="M2 12h20M2 12l4-4m-4 4l4 4"/>
           </svg>
           <span>Airplane</span>
-        </div>
-        <div class="qs-tile" id="qs-darkmode">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
+        </button>
+        <button class="toggle-btn" data-action="dnd">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M12 22c5.5 0 10-4.5 10-10S17.5 2 12 2 2 6.5 2 12s4.5 10 10 10z"/>
+            <line x1="4.9" y1="4.9" x2="19.1" y2="19.1"/>
           </svg>
-          <span>Dark</span>
-        </div>
+          <span>Focus</span>
+        </button>
+        <button class="toggle-btn" data-action="flashlight">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M15 14c.2-1 .7-1.7 1.5-2.5 1-.9 1.5-2.2 1.5-3.5A6 6 0 0 0 6 8c0 1.3.5 2.6 1.5 3.5.8.8 1.3 1.5 1.5 2.5"/>
+            <path d="M9 18h6"/>
+            <path d="M10 22h4"/>
+          </svg>
+          <span>Flashlight</span>
+        </button>
+        <button class="toggle-btn" data-action="calculator">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="4" y="2" width="16" height="20" rx="2"/>
+            <path d="M8 6h8M8 10h2M14 10h2M8 14h2M14 14h2M8 18h2M14 18h2"/>
+          </svg>
+          <span>Calculator</span>
+        </button>
       </div>
     </div>
 
-    <!-- ═══ Power Menu ════════════════════════════════════════════ -->
-    <div id="power-menu" class="panel hidden">
-      <div class="power-item" data-action="sleep">
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <path d="M12 2v8M5.6 5.6a9 9 0 1 0 12.8 0"/>
-        </svg>
-        <span>Sleep</span>
-      </div>
-      <div class="power-item" data-action="restart">
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <polyline points="23 4 23 10 17 10"/>
-          <path d="M20.5 14a9 9 0 1 1-3.2-7.6L23 10"/>
-        </svg>
-        <span>Restart</span>
-      </div>
-      <div class="power-item danger" data-action="shutdown">
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <path d="M12 4v8"/>
-          <path d="M7.5 7a7 7 0 1 0 9 0"/>
-        </svg>
-        <span>Shut Down</span>
-      </div>
-    </div>
-
-    <!-- ═══ App Grid / Start Menu ═════════════════════════════════ -->
-    <div id="app-grid" class="panel hidden">
-      <div id="app-grid-header">All Apps</div>
-      <div id="app-grid-list"></div>
+    <!-- ═══ Close hint (bottom center) ════════════════════════════ -->
+    <div id="close-hint">
+      <span>Press <kbd>Esc</kbd> or click outside to close</span>
     </div>
 
   </div>

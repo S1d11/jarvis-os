@@ -7,23 +7,24 @@ namespace Jarvis.Windows;
 /// <summary>
 /// Jarvis application entry point.
 ///
-/// By default, Jarvis runs as an invisible background process:
-///   - No WPF window (the orb is a raw Win32 HWND on a separate thread)
-///   - No system tray icon
-///   - No taskbar entry
-///   - Not visible in Alt+Tab
+/// Jarvis coexists with Windows — it does NOT replace Explorer.
+/// It runs as a background process with two UI surfaces:
 ///
-/// It sits in the background, listening for:
-///   1. Win+J (low-level keyboard hook — works even in fullscreen games)
-///   2. "Hey Jarvis" (NAudio wake word detection)
+///   1. NativeOrbWindow — a small floating glass sphere (raw Win32 HWND)
+///      that stays visible on top of all windows. Drag it anywhere.
+///      Click it to summon the overlay.
 ///
-/// When summoned, the NativeOrbWindow appears — a raw Win32 overlay created
-/// via CreateWindowEx, hosting WebView2 directly through its COM controller.
-/// No WPF Window, no XAML, no Dispatcher. Just a Win32 HWND.
+///   2. MainWindow (repurposed as Overlay) — a transparent, borderless,
+///      always-on-top window that hosts the Siri-style assistant UI.
+///      It appears centered over whatever you're doing, like Spotlight.
 ///
-/// Command-line flags:
-///   --shell     Replace Explorer as the desktop shell (fullscreen WPF window)
-///   --no-wake   Disable wake word detection (hotkey only)
+/// Summon methods:
+///   - Win+J (low-level keyboard hook — works in fullscreen games)
+///   - "Hey Jarvis" (NAudio wake word detection)
+///   - Click the floating orb
+///
+/// The app has no taskbar icon, no tray icon, no system menu.
+/// It feels like part of the OS.
 /// </summary>
 public partial class App : WpfApplication
 {
@@ -38,17 +39,15 @@ public partial class App : WpfApplication
     private NativeOrbWindow? _orbWindow;
     private LowLevelKeyboardHook? _keyboardHook;
     private WakeWordService? _wakeWord;
-    private MainWindow? _mainWindow;
-    private bool _shellMode;
-    private bool _mainWindowVisible;
+    private MainWindow? _overlay;
+    private bool _overlayVisible;
 
     protected override void OnStartup(System.Windows.StartupEventArgs e)
     {
         base.OnStartup(e);
 
-        // Prevent WPF from shutting down when the last window closes.
-        // In background mode there are no WPF windows — the process stays
-        // alive for the keyboard hook and wake word service.
+        // Prevent WPF from shutting down when windows are hidden.
+        // The process stays alive for the keyboard hook and wake word.
         ShutdownMode = ShutdownMode.OnExplicitShutdown;
 
         // Create data directory
@@ -58,100 +57,76 @@ public partial class App : WpfApplication
         bool noWake = false;
         foreach (var arg in e.Args)
         {
-            if (arg == "--shell") _shellMode = true;
-            else if (arg == "--no-wake") noWake = true;
+            if (arg == "--no-wake") noWake = true;
         }
 
-        // ── Create the native orb window (raw Win32, hidden) ────────
+        // ── Create the overlay window (hidden on startup) ──────────
+        // This is the Siri-style assistant that appears over your desktop.
+        // Transparent, borderless, always on top. Not a shell replacement.
+        _overlay = new MainWindow();
+        _overlay.OverlayDismissed += OnOverlayDismissed;
+
+        // ── Create the floating glass orb (raw Win32, visible) ───────
+        // A small persistent widget that floats above all windows.
+        // Click it to summon the overlay.
         _orbWindow = new NativeOrbWindow();
         _orbWindow.Dismissed += OnOrbDismissed;
-        _orbWindow.OpenMainWindowRequested += OnOrbOpenMainRequested;
-
-        // ── Shell mode: show the full desktop (WPF MainWindow) ──────
-        if (_shellMode)
-        {
-            _mainWindow = new MainWindow();
-            _mainWindow.EnterKiosk();
-            _mainWindowVisible = true;
-        }
+        _orbWindow.OpenOverlayRequested += ShowOverlay;
 
         // ── Install low-level keyboard hook (Win+J) ─────────────────
         _keyboardHook = new LowLevelKeyboardHook();
-        _keyboardHook.SummonPressed += OnSummonPressed;
-        _keyboardHook.EscapePressed += OnEscapePressed;
+        _keyboardHook.SummonPressed += ToggleOverlay;
+        _keyboardHook.EscapePressed += HideOverlay;
         _keyboardHook.Install();
 
         // ── Start wake word detection ("Hey Jarvis") ────────────────
         if (!noWake)
         {
             _wakeWord = new WakeWordService();
-            _wakeWord.WakeWordDetected += OnSummonPressed;
+            _wakeWord.WakeWordDetected += ShowOverlay;
             _wakeWord.Start();
         }
+
+        // Jarvis is now running in the background, invisible to the user
+        // until they press Win+J or click the orb.
     }
 
-    /// <summary>Win+J or "Hey Jarvis" pressed.</summary>
-    private void OnSummonPressed()
+    /// <summary>Win+J pressed — toggle the overlay.</summary>
+    private void ToggleOverlay()
     {
-        if (_shellMode && _mainWindow != null)
-        {
-            // In shell mode: toggle the assistant panel via the shell UI
-            ToggleAssistantPanel();
-        }
+        if (_overlayVisible)
+            HideOverlay();
         else
-        {
-            // Background mode: summon the floating orb
-            _orbWindow?.Summon();
-        }
+            ShowOverlay();
     }
 
-    /// <summary>Escape pressed.</summary>
-    private void OnEscapePressed()
+    /// <summary>Show the Siri-style overlay (also called by orb click).</summary>
+    private void ShowOverlay()
     {
-        if (_shellMode && _mainWindow != null && _mainWindowVisible)
-        {
-            // In shell mode: hide the assistant / shell window
-            _mainWindow.HideShell();
-            _mainWindowVisible = false;
-        }
-        else
-        {
-            // Background mode: dismiss the floating orb
-            _orbWindow?.Dismiss();
-        }
+        _overlay?.ShowOverlay();
+        _overlayVisible = true;
     }
 
-    private void ToggleAssistantPanel()
+    /// <summary>Hide the overlay back to background.</summary>
+    private void HideOverlay()
     {
-        if (_mainWindow == null) return;
-        if (_mainWindowVisible)
-        {
-            _mainWindow.HideShell();
-            _mainWindowVisible = false;
-        }
-        else
-        {
-            _mainWindow.ShowShell();
-            _mainWindowVisible = true;
-        }
+        _overlay?.HideOverlay();
+        _overlayVisible = false;
     }
 
-    private void OnOrbDismissed() { /* orb faded out */ }
-
-    private void OnOrbOpenMainRequested()
+    private void OnOverlayDismissed()
     {
-        // In background mode, clicking the orb opens the shell window
-        if (_mainWindow == null)
-            _mainWindow = new MainWindow();
-        _mainWindow.ShowShell();
-        _mainWindowVisible = true;
+        _overlayVisible = false;
     }
+
+    private void OnOrbDismissed() { /* orb faded out (not used in coexist mode) */ }
 
     protected override void OnExit(ExitEventArgs e)
     {
         _keyboardHook?.Dispose();
         _wakeWord?.Dispose();
         _orbWindow?.Dispose();
+        _overlay?.ForceClose();
         base.OnExit(e);
     }
 }

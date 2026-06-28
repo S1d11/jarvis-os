@@ -60,15 +60,15 @@ public sealed class LowLevelKeyboardHook : IDisposable
     private LowLevelKeyboardProc? _proc;
     private bool _disposed;
 
-    // Win key combo tracking
+    // Track modifier state
     private bool _winDown;
     private bool _comboFired;
     private System.Timers.Timer? _winTimer;
 
-    /// <summary>Fired when Win+J is pressed (summon Jarvis).</summary>
+    /// <summary>Fired when Win+J is pressed (summon Jarvis overlay).</summary>
     public event Action? SummonPressed;
 
-    /// <summary>Fired when Escape is pressed (dismiss Jarvis).</summary>
+    /// <summary>Fired when Escape is pressed (dismiss overlay).</summary>
     public event Action? EscapePressed;
 
     /// <summary>

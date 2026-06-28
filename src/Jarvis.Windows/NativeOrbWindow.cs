@@ -192,7 +192,7 @@ public sealed class NativeOrbWindow : IBridgeHost, IDisposable
         Path.Combine(App.DataDir, "orb_position.json");
 
     public event Action? Dismissed;
-    public event Action? OpenMainWindowRequested;
+    public event Action? OpenOverlayRequested;
     public event Action<bool>? VoiceModeChanged;
 
     public NativeOrbWindow()
@@ -481,7 +481,7 @@ public sealed class NativeOrbWindow : IBridgeHost, IDisposable
                     return;
 
                 case "orb.openFull":
-                    OpenMainWindowRequested?.Invoke();
+                    OpenOverlayRequested?.Invoke();
                     Collapse();
                     return;
 
