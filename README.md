@@ -1,21 +1,22 @@
-> **Jarvis is not an application.** It is a system-level AI assistant woven directly into Windows — invisible until you call it.
+> **Jarvis is not an application.** It is a native Windows enhancement — invisible until you call it, like Spotlight on macOS.
 
 # Jarvis for Windows
 
-A native Windows AI assistant with a glass sphere orb, Siri-style fullscreen conversation, wake word detection, and deep OS integration.
+A native Windows AI assistant with a floating glass orb and a Siri-style transparent overlay. It coexists with Windows — it does NOT replace Explorer.
 
 ```
-Press Win+J or say "Hey Jarvis" → floating glass orb appears
-Click the orb → entire screen becomes a Siri-style chatbot
-Drag the orb anywhere → it remembers its position
-Escape → back to the floating orb, invisible until next summon
+Press Win+J           → Siri-style overlay appears centered on screen
+Say "Hey Jarvis"      → overlay appears
+Click the glass orb   → overlay appears
+Escape / click outside → back to your desktop
+Drag the orb          → reposition it anywhere
 ```
 
 ## What It Looks Like
 
-**Floating orb** — a dark glass sphere with a sweeping spectral light arc, caustic rim refraction, and a sharp glossy surface highlight. It floats anywhere on screen, always on top, invisible to Alt+Tab and window enumeration.
+**Floating orb** — a dark glass sphere with a sweeping spectral light arc that floats above all windows. Drag it anywhere on screen. It remembers its position.
 
-**Fullscreen** — click the orb and the entire screen becomes Jarvis. True black background. Your queries appear as centered dark pills. Jarvis responds in clean white text. A single dark input bar at the bottom with a mic/text toggle. No borders, no chrome, no window decorations — just the conversation.
+**Overlay** — a transparent, borderless window that appears centered over whatever you're doing. A glassmorphic input bar at the top. Your queries appear as centered dark pills below it. Quick toggles (Wi-Fi, Bluetooth, Focus, Flashlight, Calculator) sit underneath. Press Escape or click outside and you're back to your desktop.
 
 ## Summon Methods
 
@@ -23,24 +24,26 @@ Escape → back to the floating orb, invisible until next summon
 |--------|-----|-------------------|
 | **Win+J** | Low-level keyboard hook (`WH_KEYBOARD_LL`) | Yes — intercepts before any app, including fullscreen games |
 | **"Hey Jarvis"** | NAudio microphone + energy VAD | Yes — runs independently of foreground app |
+| **Click orb** | Floating glass sphere, always visible | Yes — always on top |
 
-## Two Modes
+## Two UI Surfaces
 
-### Compact — the floating glass orb
-- 80x80 glass sphere with 6 depth layers (see below)
+### Floating Orb — the persistent widget
+- 80×80 glass sphere with 6 depth layers (see below)
+- Always on top of all windows
 - Drag anywhere — position saved to `orb_position.json`
-- Click → goes fullscreen
-- Invisible to Alt+Tab, Task View, window enumeration
+- Click to summon the overlay
 - Raw Win32 HWND on dedicated STA thread — zero WPF
 
-### Fullscreen — Siri-style conversation
-- Covers entire screen, no borders, no chrome
-- True black `#000000` background
-- User queries: centered dark grey pill (`#1C1C1E`)
-- Jarvis responses: plain white text, 17px
-- Bottom input bar: dark pill with sparkle icon, text input, mic toggle
-- Toggle text/voice with the mic icon inside the bar
-- Escape → collapse back to floating orb
+### Overlay — the Siri-style assistant
+- Transparent, borderless, always-on-top window
+- Appears centered over your current desktop/work
+- Glassmorphic input bar with sparkle + mic icons
+- User messages: centered dark pill bubbles
+- Jarvis responses: plain white text
+- Quick toggles: Wi-Fi, Bluetooth, Airplane, Focus, Flashlight, Calculator
+- Escape or click outside → dismisses instantly
+- No taskbar entry, no window chrome, no borders
 
 ## The Glass Sphere Orb
 
@@ -57,15 +60,13 @@ The compact orb is a **true volumetric glass sphere** with 6 depth layers:
 | 4 | `#orb-reflection` | **Sharp glossy surface highlight** — crisp white ellipse |
 | 5 | `#orb-shimmer` | Soft secondary reflection, drifts subtly |
 
-The spectral colors sweep through the glass: red → orange/yellow → green → blue → violet, at very low opacity (6–22%) with heavy blur. The `mix-blend-mode: screen` on internal caustics makes them glow from within rather than sit on top.
+## Coexistence with Windows
 
-## Deep Windows Integration
+Jarvis is a **well-behaved Windows citizen**:
 
-Jarvis is not a window. It is a **system component**:
-
-- **No WPF Window** for the orb — raw `CreateWindowEx` on a dedicated STA thread
+- **Never replaces Explorer** — your desktop, taskbar, and Start menu stay intact
 - **No system tray icon** — completely invisible until summoned
-- **No taskbar entry** — `WS_EX_TOOLWINDOW` + `WS_EX_NOACTIVATE`
+- **No taskbar entry** — `WS_EX_TOOLWINDOW` + `ShowInTaskbar=False`
 - **No Alt+Tab** — `DWMWA_EXCLUDED_FROM_PEEK` + cloaking
 - **Boot service** — registered as a scheduled task via `install.ps1`
 - **Works in fullscreen games** — `WH_KEYBOARD_LL` intercepts Win+J before any app sees it
@@ -74,20 +75,28 @@ Jarvis is not a window. It is a **system component**:
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│  NativeOrbWindow — raw Win32 HWND on dedicated STA thread      │
-│  WebView2 via CoreWebView2Controller (COM, not WPF wrapper)    │
-│  WS_POPUP | WS_EX_LAYERED | WS_EX_NOACTIVATE | WS_EX_TOOLWINDOW│
-│  WS_EX_TOPMOST | WS_EX_NOREDIRECTIONBITMAP                    │
-├───────────────────────────────────────────────────────────────┤
+│  Windows Desktop (Explorer running normally)                   │
+│                                                                  │
+│  ┌─────────────────┐    ┌───────────────────────────────────┐  │
+│  │  Floating Orb   │    │  Transparent Overlay (on demand)  │  │
+│  │  (NativeOrbWin) │    │  (MainWindow — borderless,        │  │
+│  │  80x80 Win32    │    │   transparent, always-on-top)     │  │
+│  │  always visible │    │                                   │  │
+│  └────────┬────────┘    │   • Centered input bar            │  │
+│           │ click       │   • Conversation feed             │  │
+│           └────────────►│   • Quick toggles                 │  │
+│                         │   • Escape / click-outside = hide  │  │
+│                         └───────────────────────────────────┘  │
+├──────────────────────────────────────────────────────────────────┤
 │  LowLevelKeyboardHook — WH_KEYBOARD_LL (works in games)        │
-├───────────────────────────────────────────────────────────────┤
-│  WakeWordService — NAudio 16kHz mono, energy VAD             │
-├───────────────────────────────────────────────────────────────┤
-│  Bridge (JSON-RPC) → Shell / SystemControl / Process / Window │
-├───────────────────────────────────────────────────────────────┤
-│  Win32 API — LockWorkStation, shutdown, EnumWindows, etc.       │
-├───────────────────────────────────────────────────────────────┤
-│  Windows OS                                                    │
+├──────────────────────────────────────────────────────────────────┤
+│  WakeWordService — NAudio "Hey Jarvis" detection               │
+├──────────────────────────────────────────────────────────────────┤
+│  Bridge (JSON-RPC) → Shell / SystemControl / Process / Window  │
+├──────────────────────────────────────────────────────────────────┤
+│  Win32 API — LockWorkStation, shutdown, EnumWindows, etc.         │
+├──────────────────────────────────────────────────────────────────┤
+│  Windows OS                                                      │
 └─────────────────────────────────────────────────────────────┘
 ```
 
@@ -95,11 +104,10 @@ Jarvis is not a window. It is a **system component**:
 
 ```
 jarvis-os/
-├── install.ps1                  # System component installer
+├── install.ps1                  # Background service installer (no shell replacement)
 │   # Copies to C:\Program Files\Jarvis
 │   # Creates scheduled task (boot, hidden)
-│   # -ShellMode: replaces Explorer
-│   # -Uninstall: restores everything
+│   # -Uninstall: removes everything
 ├── publish.ps1                  # Build self-contained .exe
 ├── Jarvis.sln
 └── src/
@@ -109,17 +117,17 @@ jarvis-os/
     │   ├── Shell/               # Dock, app launching, power
     │   ├── Services/            # System control, process, window
     │   └── Web/                 # Embedded web UI (embedded as resources)
-    │       ├── index.html       # Full shell UI (--shell mode)
-    │       ├── styles.css
-    │       ├── app.js
-    │       ├── orb.html         # Orb UI (compact + fullscreen)
-    │       ├── orb.css          # Glass sphere + Siri conversation styles
-    │       ├── orb.js           # Orb state machine, drag, expand/collapse
+    │       ├── index.html       # Siri-style overlay UI
+    │       ├── styles.css       # Glassmorphic overlay styles
+    │       ├── app.js           # Overlay logic
+    │       ├── orb.html         # Compact orb UI
+    │       ├── orb.css          # Glass sphere styles
+    │       ├── orb.js           # Orb click → summon overlay
     │       └── manifest.txt     # Resource manifest
     └── Jarvis.Windows/
-        ├── App.xaml.cs          # Background-only startup (no window, no tray)
+        ├── App.xaml.cs          # Background-only startup (overlay + orb)
         ├── NativeOrbWindow.cs   # Raw Win32 HWND + WebView2 controller
-        ├── MainWindow.xaml(.cs) # Full desktop shell (--shell mode)
+        ├── MainWindow.xaml(.cs) # Transparent overlay (borderless, topmost)
         ├── LowLevelKeyboardHook.cs  # WH_KEYBOARD_LL for Win+J
         ├── WakeWordService.cs   # NAudio "Hey Jarvis" detection
         ├── WindowsSystemAccess.cs   # Win32 lock, shutdown, sleep, launch
@@ -134,7 +142,7 @@ jarvis-os/
 # Build
 dotnet build src\Jarvis.Windows\Jarvis.Windows.csproj -c Release
 
-# Run in debug mode
+# Run
 dotnet run --project src\Jarvis.Windows\Jarvis.Windows.csproj
 
 # Publish self-contained .exe (no .NET runtime needed)
@@ -147,24 +155,14 @@ dotnet run --project src\Jarvis.Windows\Jarvis.Windows.csproj
 # Build
 .\publish.ps1
 
-# Install as system component (requires admin)
+# Install as background service (requires admin)
 powershell -ExecutionPolicy Bypass -File install.ps1
 ```
 
 After installation:
 - No desktop shortcut, no Start Menu, no tray icon
 - Jarvis starts at login via scheduled task
-- Press **Win+J** or say **"Hey Jarvis"**
-
-### Shell Mode
-
-Replace Windows Explorer entirely:
-
-```powershell
-powershell -ExecutionPolicy Bypass -File install.ps1 -ShellMode
-```
-
-Boots directly into Jarvis — no taskbar, no Start menu, no Explorer desktop.
+- Press **Win+J** or say **"Hey Jarvis"** or click the orb
 
 ### Uninstall
 
@@ -178,7 +176,6 @@ All user data lives under `%LOCALAPPDATA%\Jarvis\`:
 - `config.json` — settings
 - `web/` — extracted UI cache
 - `orb_position.json` — floating orb position
-- `pinned_apps.json` — dock pinned apps
 
 ## License
 
