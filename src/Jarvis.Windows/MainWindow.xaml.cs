@@ -175,10 +175,9 @@ public partial class MainWindow : Window, IBridgeHost
     {
         Dispatcher.Invoke(() =>
         {
+            Visibility = Visibility.Visible;
             Show();
             Activate();
-            // Slight flash of topmost then release so it grabs focus
-            // but doesn't permanently block other windows
             Topmost = true;
         });
     }
@@ -189,6 +188,7 @@ public partial class MainWindow : Window, IBridgeHost
         Dispatcher.Invoke(() =>
         {
             Hide();
+            Visibility = Visibility.Hidden;
             OverlayDismissed?.Invoke();
         });
     }

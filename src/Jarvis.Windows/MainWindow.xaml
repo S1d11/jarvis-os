@@ -11,6 +11,8 @@
         WindowStartupLocation="CenterScreen"
         ShowInTaskbar="False"
         Topmost="True"
+        ShowActivated="False"
+        Visibility="Hidden"
         UseLayoutRounding="True"
         SnapsToDevicePixels="True"
         Loaded="Window_Loaded"
