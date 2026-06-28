@@ -54,6 +54,13 @@ if ($Uninstall) {
     # Remove scheduled task
     Unregister-ScheduledTask -TaskName $TaskName -Confirm:$false -ErrorAction SilentlyContinue
 
+    # Remove Start Menu shortcut
+    $shortcutPath = "$env:APPDATA\Microsoft\Windows\Start Menu\Programs\Jarvis.lnk"
+    if (Test-Path $shortcutPath) {
+        Remove-Item $shortcutPath -Force
+        Write-Host "  Removed Start Menu shortcut" -ForegroundColor Green
+    }
+
     # Remove install directory
     if (Test-Path $InstallDir) {
         Remove-Item $InstallDir -Recurse -Force
@@ -99,7 +106,7 @@ Get-ChildItem $sourceDir -Filter "*.json" -ErrorAction SilentlyContinue | Copy-I
 Write-Host "  Files installed." -ForegroundColor Green
 
 # Step 2: Create scheduled task (starts at user login, hidden)
-Write-Host "[2/3] Registering Jarvis as a system component..." -ForegroundColor White
+Write-Host "[2/4] Registering Jarvis to start at login..." -ForegroundColor White
 
 $action = New-ScheduledTaskAction -Execute "$InstallDir\Jarvis.exe"
 $trigger = New-ScheduledTaskTrigger -AtLogOn
@@ -113,8 +120,25 @@ Register-ScheduledTask -TaskName $TaskName -Action $action -Trigger $trigger -Se
 
 Write-Host "  Jarvis will start automatically at login." -ForegroundColor Green
 
-# Step 3: Start Jarvis now
-Write-Host "[3/3] Starting Jarvis..." -ForegroundColor White
+# Step 3: Create Start Menu shortcut
+Write-Host "[3/4] Creating Start Menu shortcut..." -ForegroundColor White
+
+$startMenuPath = "$env:APPDATA\Microsoft\Windows\Start Menu\Programs"
+$shortcutPath = "$startMenuPath\Jarvis.lnk"
+
+if (Test-Path $shortcutPath) { Remove-Item $shortcutPath -Force }
+
+$shell = New-Object -ComObject WScript.Shell
+$shortcut = $shell.CreateShortcut($shortcutPath)
+$shortcut.TargetPath = "$InstallDir\Jarvis.exe"
+$shortcut.IconLocation = "$InstallDir\Jarvis.exe,0"
+$shortcut.Description = "Jarvis AI assistant — Press Win+J or say 'Hey Jarvis'"
+$shortcut.Save()
+
+Write-Host "  Start Menu shortcut created." -ForegroundColor Green
+
+# Step 4: Start Jarvis now
+Write-Host "[4/4] Starting Jarvis..." -ForegroundColor White
 Start-ScheduledTask -TaskName $TaskName
 Write-Host "  Jarvis is now running in the background." -ForegroundColor Green
 
@@ -128,9 +152,11 @@ Write-Host ""
 Write-Host "  Press Win+J to summon the assistant." -ForegroundColor Cyan
 Write-Host '  Say "Hey Jarvis" to summon via voice.' -ForegroundColor Cyan
 Write-Host "  Click the floating orb to open the assistant." -ForegroundColor Cyan
+Write-Host "  Find Jarvis in the Start Menu to relaunch." -ForegroundColor Cyan
+Write-Host "  Tray icon in hidden icons menu for quick access." -ForegroundColor Cyan
 Write-Host ""
-Write-Host "There is no desktop shortcut, no Start Menu entry, no tray icon." -ForegroundColor Gray
-Write-Host "Jarvis is invisible until you call it." -ForegroundColor Gray
+Write-Host "On startup, nothing is visible — not even the orb." -ForegroundColor Gray
+Write-Host "The orb only appears after you press Win+J or say Hey Jarvis." -ForegroundColor Gray
 Write-Host ""
 Write-Host "To uninstall: .\install.ps1 -Uninstall" -ForegroundColor Gray
 Write-Host ""

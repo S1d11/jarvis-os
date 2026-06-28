@@ -299,6 +299,9 @@ public sealed class NativeOrbWindow : IBridgeHost, IDisposable
             int exclude = 1;
             DwmSetWindowAttribute(_hwnd, DWMWA_EXCLUDED_FROM_PEEK, ref exclude, sizeof(int));
 
+            // Hide on startup — orb only appears when summoned via Win+J or voice
+            ShowWindow(_hwnd, SW_HIDE);
+
             _ = InitializeWebViewAsync();
             _createdEvent.Set();
 
