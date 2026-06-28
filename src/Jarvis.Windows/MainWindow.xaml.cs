@@ -175,6 +175,9 @@ public partial class MainWindow : Window, IBridgeHost
     {
         Dispatcher.Invoke(() =>
         {
+            // Maximize must be set before Show() when ShowActivated is false,
+            // but WPF throws if both are set at creation. Set it here instead.
+            WindowState = WindowState.Maximized;
             Visibility = Visibility.Visible;
             Show();
             Activate();
@@ -188,6 +191,7 @@ public partial class MainWindow : Window, IBridgeHost
         Dispatcher.Invoke(() =>
         {
             Hide();
+            WindowState = WindowState.Normal;
             Visibility = Visibility.Hidden;
             OverlayDismissed?.Invoke();
         });
