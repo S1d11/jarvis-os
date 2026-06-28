@@ -83,7 +83,8 @@ public partial class App : WpfApplication
         // ── Install low-level keyboard hook (Win+J) ─────────────────
         _keyboardHook = new LowLevelKeyboardHook();
         _keyboardHook.SummonPressed += ToggleOverlay;
-        _keyboardHook.EscapePressed += HideOverlay;
+        _keyboardHook.EscapePressed += () =>
+            System.Windows.Threading.Dispatcher.CurrentDispatcher.BeginInvoke(new Action(HideOverlay));
         _keyboardHook.Install();
 
         // ── Start wake word detection ("Hey Jarvis") ────────────────
@@ -159,13 +160,19 @@ public partial class App : WpfApplication
         }
     }
 
-    /// <summary>Win+J pressed — toggle the overlay.</summary>
+    /// <summary>Win+J pressed — toggle the overlay.
+    /// Called from the low-level keyboard hook callback, so we must return
+    /// quickly (Windows removes hooks that block &gt;300ms). Marshal to the
+    /// dispatcher asynchronously.</summary>
     private void ToggleOverlay()
     {
-        if (_overlayVisible)
-            HideOverlay();
-        else
-            ShowOverlay();
+        System.Windows.Threading.Dispatcher.CurrentDispatcher.BeginInvoke(new Action(() =>
+        {
+            if (_overlayVisible)
+                HideOverlay();
+            else
+                ShowOverlay();
+        }));
     }
 
     /// <summary>Show the Siri-style overlay (also called by orb click).</summary>

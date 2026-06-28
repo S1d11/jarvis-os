@@ -81,13 +81,28 @@ public sealed class LowLevelKeyboardHook : IDisposable
 
         _proc = HookCallback;
 
-        using var curProcess = Process.GetCurrentProcess();
-        using var curModule = curProcess.MainModule!;
-        _hookId = SetWindowsHookEx(WH_KEYBOARD_LL, _proc, GetModuleHandle(curModule.ModuleName!), 0);
+        // In single-file self-contained apps, Process.MainModule can throw.
+        // GetModuleHandle(null) returns the handle of the current executable,
+        // which works fine for WH_KEYBOARD_LL.
+        IntPtr hMod;
+        try
+        {
+            using var curProcess = Process.GetCurrentProcess();
+            using var curModule = curProcess.MainModule;
+            hMod = GetModuleHandle(curModule?.ModuleName ?? null!);
+        }
+        catch
+        {
+            hMod = GetModuleHandle(null!);
+        }
+
+        if (hMod == IntPtr.Zero) hMod = GetModuleHandle(null!);
+
+        _hookId = SetWindowsHookEx(WH_KEYBOARD_LL, _proc, hMod, 0);
 
         if (_hookId == IntPtr.Zero)
         {
-            Debug.WriteLine("[KeyboardHook] Failed to install hook");
+            Debug.WriteLine($"[KeyboardHook] Failed to install hook (err={Marshal.GetLastWin32Error()})");
         }
         else
         {
